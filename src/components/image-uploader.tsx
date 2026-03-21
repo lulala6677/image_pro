@@ -117,7 +117,7 @@ export function ImageUploader({ onImageLoad, currentImage, onClear }: ImageUploa
   return (
     <Card
       className={cn(
-        "border-2 border-dashed transition-colors cursor-pointer w-full max-w-md mx-auto",
+        "border-2 border-dashed transition-colors cursor-pointer w-full max-w-lg mx-auto",
         isDragging && "border-primary bg-primary/5",
         isLoading && "opacity-50 pointer-events-none"
       )}
@@ -126,12 +126,12 @@ export function ImageUploader({ onImageLoad, currentImage, onClear }: ImageUploa
       onDragLeave={handleDragLeave}
       onClick={() => document.getElementById('file-input')?.click()}
     >
-      <div className="flex flex-col items-center justify-center py-8 px-6 text-center">
-        <div className="mb-3 rounded-full bg-primary/10 p-3">
-          <Upload className="h-6 w-6 text-primary" />
+      <div className="flex flex-col items-center justify-center py-6 px-4 text-center">
+        <div className="mb-2 rounded-full bg-primary/10 p-2.5">
+          <Upload className="h-5 w-5 text-primary" />
         </div>
-        <h3 className="mb-1 text-base font-semibold">上传图片</h3>
-        <p className="mb-2 text-sm text-muted-foreground">
+        <h3 className="mb-1 text-sm font-semibold">上传图片</h3>
+        <p className="mb-1 text-xs text-muted-foreground">
           拖拽图片到此处，或点击选择
         </p>
         <p className="text-xs text-muted-foreground">

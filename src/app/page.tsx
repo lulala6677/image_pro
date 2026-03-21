@@ -328,19 +328,19 @@ export default function ImageProcessorPage() {
 
       {/* 主内容区 */}
       <div className="flex-1 overflow-hidden">
-        <ResizablePanelGroup orientation="horizontal">
+        <ResizablePanelGroup orientation="horizontal" className="h-full">
           {/* 左侧：操作面板 */}
-          <ResizablePanel defaultSize={22} minSize={18} maxSize={30}>
+          <ResizablePanel defaultSize={20} minSize={15} maxSize={35} className="min-w-[200px]">
             <OperationPanel onApply={applyOperation} isProcessing={isProcessing} />
           </ResizablePanel>
 
           <ResizableHandle withHandle />
 
           {/* 中间：图像预览 */}
-          <ResizablePanel defaultSize={56} minSize={40}>
+          <ResizablePanel defaultSize={60} minSize={40} className="flex flex-col">
             <div className="h-full flex flex-col">
               {/* 缩放控制 */}
-              <div className="flex items-center justify-center gap-2 py-2 border-b bg-background">
+              <div className="flex items-center justify-center gap-2 py-2 border-b bg-background flex-shrink-0">
                 <Button
                   variant="ghost"
                   size="icon"
@@ -389,12 +389,10 @@ export default function ImageProcessorPage() {
                     )}
                   </div>
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <ImageUploader
-                      onImageLoad={setCurrentImage}
-                      currentImage={null}
-                    />
-                  </div>
+                  <ImageUploader
+                    onImageLoad={setCurrentImage}
+                    currentImage={null}
+                  />
                 )}
               </div>
             </div>
@@ -403,9 +401,9 @@ export default function ImageProcessorPage() {
           <ResizableHandle withHandle />
 
           {/* 右侧：直方图和历史 */}
-          <ResizablePanel defaultSize={22} minSize={18} maxSize={30}>
+          <ResizablePanel defaultSize={20} minSize={15} maxSize={35} className="min-w-[200px]">
             <Tabs defaultValue="histogram" className="h-full flex flex-col">
-              <TabsList className="mx-3 mt-2">
+              <TabsList className="mx-3 mt-2 flex-shrink-0">
                 <TabsTrigger value="histogram" className="text-xs">直方图</TabsTrigger>
                 <TabsTrigger value="history" className="text-xs">历史</TabsTrigger>
               </TabsList>
