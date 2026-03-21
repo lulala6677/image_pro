@@ -176,44 +176,44 @@ export function OperationPanel({ onApply, isProcessing }: OperationPanelProps) {
   };
 
   return (
-    <Card className="h-full flex flex-col">
-      <CardHeader className="pb-2 flex-shrink-0">
-        <CardTitle className="text-sm">图像处理</CardTitle>
-      </CardHeader>
-      <CardContent className="flex-1 overflow-hidden flex flex-col gap-4">
+    <div className="h-full flex flex-col bg-card">
+      <div className="px-3 py-2 border-b flex-shrink-0">
+        <h2 className="text-sm font-semibold">图像处理</h2>
+      </div>
+      <div className="flex-1 overflow-hidden flex flex-col gap-3 p-3">
         {/* 操作列表 */}
-        <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+        <div className="flex-1 overflow-y-auto space-y-2">
           {Object.entries(OPERATION_CONFIGS).map(([category, operations]) => (
             <Collapsible
               key={category}
               open={expandedCategories.includes(category)}
               onOpenChange={() => toggleCategory(category)}
             >
-              <CollapsibleTrigger className="flex items-center gap-2 w-full py-2 text-sm font-medium hover:text-primary transition-colors">
+              <CollapsibleTrigger className="flex items-center gap-2 w-full py-1.5 text-sm font-medium hover:text-primary transition-colors">
                 {expandedCategories.includes(category) ? (
-                  <ChevronDown className="h-4 w-4" />
+                  <ChevronDown className="h-4 w-4 flex-shrink-0" />
                 ) : (
-                  <ChevronRight className="h-4 w-4" />
+                  <ChevronRight className="h-4 w-4 flex-shrink-0" />
                 )}
-                {categoryLabels[category] || category}
+                <span className="truncate">{categoryLabels[category] || category}</span>
               </CollapsibleTrigger>
               <CollapsibleContent>
-                <div className="grid grid-cols-2 gap-2 mt-2">
+                <div className="grid grid-cols-2 gap-1.5 mt-1.5 pl-6">
                   {operations.map(op => {
                     const Icon = iconMap[op.icon] || Circle;
                     return (
                       <Button
                         key={op.name}
-                        variant={selectedOperation === op.name ? 'default' : 'outline'}
+                        variant={selectedOperation === op.name ? 'default' : 'ghost'}
                         size="sm"
                         className={cn(
-                          "h-auto py-2 px-3 flex flex-col items-center gap-1",
-                          selectedOperation === op.name && "ring-2 ring-primary"
+                          "h-auto py-1.5 px-2 flex items-center gap-1.5 justify-start",
+                          selectedOperation === op.name && "ring-1 ring-primary bg-primary text-primary-foreground"
                         )}
                         onClick={() => handleOperationSelect(op)}
                       >
-                        <Icon className="h-4 w-4" />
-                        <span className="text-xs truncate w-full text-center">{op.name}</span>
+                        <Icon className="h-3.5 w-3.5 flex-shrink-0" />
+                        <span className="text-xs truncate">{op.name}</span>
                       </Button>
                     );
                   })}
@@ -225,20 +225,21 @@ export function OperationPanel({ onApply, isProcessing }: OperationPanelProps) {
 
         {/* 参数面板 */}
         {selectedOperation && (
-          <div className="border-t pt-4 space-y-4">
-            <div className="text-sm font-medium">
+          <div className="border-t pt-3 space-y-3 flex-shrink-0">
+            <div className="text-xs text-muted-foreground">
               {getAllOperations().find(o => o.name === selectedOperation)?.description}
             </div>
             {(() => {
               const operation = getAllOperations().find(o => o.name === selectedOperation);
               if (!operation || operation.params.length === 0) return null;
               return (
-                <div className="space-y-3">
+                <div className="space-y-2.5 max-h-48 overflow-y-auto">
                   {operation.params.map(renderParamInput)}
                 </div>
               );
             })()}
             <Button 
+              size="sm"
               className="w-full" 
               onClick={handleApply}
               disabled={isProcessing}
@@ -247,8 +248,8 @@ export function OperationPanel({ onApply, isProcessing }: OperationPanelProps) {
             </Button>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 

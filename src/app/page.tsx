@@ -330,17 +330,17 @@ export default function ImageProcessorPage() {
       <div className="flex-1 overflow-hidden">
         <ResizablePanelGroup orientation="horizontal">
           {/* 左侧：操作面板 */}
-          <ResizablePanel defaultSize={25} minSize={20} maxSize={35}>
+          <ResizablePanel defaultSize={22} minSize={18} maxSize={30}>
             <OperationPanel onApply={applyOperation} isProcessing={isProcessing} />
           </ResizablePanel>
 
-          <ResizableHandle />
+          <ResizableHandle withHandle />
 
           {/* 中间：图像预览 */}
-          <ResizablePanel defaultSize={50} minSize={30}>
+          <ResizablePanel defaultSize={56} minSize={40}>
             <div className="h-full flex flex-col">
               {/* 缩放控制 */}
-              <div className="flex items-center justify-center gap-2 py-2 border-b">
+              <div className="flex items-center justify-center gap-2 py-2 border-b bg-background">
                 <Button
                   variant="ghost"
                   size="icon"
@@ -372,7 +372,7 @@ export default function ImageProcessorPage() {
               <div className="flex-1 overflow-auto flex items-center justify-center p-4 bg-muted/30">
                 {displayImage ? (
                   <div
-                    className="relative transition-transform duration-200"
+                    className="relative transition-transform duration-200 origin-center"
                     style={{ transform: `scale(${zoom / 100})` }}
                   >
                     <img
@@ -389,31 +389,33 @@ export default function ImageProcessorPage() {
                     )}
                   </div>
                 ) : (
-                  <ImageUploader
-                    onImageLoad={setCurrentImage}
-                    currentImage={null}
-                  />
+                  <div className="w-full h-full flex items-center justify-center">
+                    <ImageUploader
+                      onImageLoad={setCurrentImage}
+                      currentImage={null}
+                    />
+                  </div>
                 )}
               </div>
             </div>
           </ResizablePanel>
 
-          <ResizableHandle />
+          <ResizableHandle withHandle />
 
           {/* 右侧：直方图和历史 */}
-          <ResizablePanel defaultSize={25} minSize={20} maxSize={35}>
+          <ResizablePanel defaultSize={22} minSize={18} maxSize={30}>
             <Tabs defaultValue="histogram" className="h-full flex flex-col">
-              <TabsList className="mx-4 mt-2">
+              <TabsList className="mx-3 mt-2">
                 <TabsTrigger value="histogram" className="text-xs">直方图</TabsTrigger>
                 <TabsTrigger value="history" className="text-xs">历史</TabsTrigger>
               </TabsList>
-              <TabsContent value="histogram" className="flex-1 m-0">
-                <div className="p-4 h-full">
+              <TabsContent value="histogram" className="flex-1 m-0 overflow-hidden">
+                <div className="p-3 h-full overflow-auto">
                   <Histogram dataUrl={displayImage?.dataUrl || ''} />
                 </div>
               </TabsContent>
-              <TabsContent value="history" className="flex-1 m-0">
-                <div className="p-4 h-full">
+              <TabsContent value="history" className="flex-1 m-0 overflow-hidden">
+                <div className="p-3 h-full overflow-auto">
                   <HistoryPanel
                     entries={history}
                     currentId={processedImage?.id}

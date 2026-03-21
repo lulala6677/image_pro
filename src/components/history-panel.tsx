@@ -42,60 +42,56 @@ export function HistoryPanel({ entries, currentId, onRestore, onClear }: History
   }
 
   return (
-    <Card className="h-full">
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <History className="h-4 w-4" />
-            历史记录
-          </CardTitle>
-          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onClear}>
-            <Trash2 className="h-3 w-3" />
-          </Button>
+    <div className="h-full flex flex-col bg-card">
+      <div className="px-3 py-2 border-b flex items-center justify-between flex-shrink-0">
+        <div className="flex items-center gap-2">
+          <History className="h-4 w-4" />
+          <span className="text-sm font-semibold">历史记录</span>
         </div>
-      </CardHeader>
-      <CardContent className="p-0">
-        <ScrollArea className="h-[calc(100%-60px)]">
-          <div className="space-y-2 p-4 pt-0">
-            {entries.map((entry, index) => (
-              <div
-                key={entry.id}
-                className={cn(
-                  "flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors",
-                  currentId === entry.id ? "bg-primary/10 ring-1 ring-primary" : "hover:bg-muted"
-                )}
-                onClick={() => onRestore(entry.id)}
-              >
-                <div className="w-12 h-12 rounded overflow-hidden bg-muted flex-shrink-0">
-                  <img
-                    src={entry.thumbnail}
-                    alt=""
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium truncate">{entry.operation}</p>
-                  <p className="text-xs text-muted-foreground">
-                    #{index + 1} · {formatTime(entry.timestamp)}
-                  </p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 flex-shrink-0"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onRestore(entry.id);
-                  }}
-                >
-                  <RotateCcw className="h-3 w-3" />
-                </Button>
+        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onClear}>
+          <Trash2 className="h-3 w-3" />
+        </Button>
+      </div>
+      <ScrollArea className="flex-1">
+        <div className="space-y-1.5 p-2">
+          {entries.map((entry, index) => (
+            <div
+              key={entry.id}
+              className={cn(
+                "flex items-center gap-2 p-2 rounded-md cursor-pointer transition-colors",
+                currentId === entry.id ? "bg-primary/10 ring-1 ring-primary" : "hover:bg-muted"
+              )}
+              onClick={() => onRestore(entry.id)}
+            >
+              <div className="w-10 h-10 rounded overflow-hidden bg-muted flex-shrink-0">
+                <img
+                  src={entry.thumbnail}
+                  alt=""
+                  className="w-full h-full object-cover"
+                />
               </div>
-            ))}
-          </div>
-        </ScrollArea>
-      </CardContent>
-    </Card>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium truncate">{entry.operation}</p>
+                <p className="text-xs text-muted-foreground">
+                  #{index + 1} · {formatTime(entry.timestamp)}
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 flex-shrink-0"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRestore(entry.id);
+                }}
+              >
+                <RotateCcw className="h-3 w-3" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      </ScrollArea>
+    </div>
   );
 }
 

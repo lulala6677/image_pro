@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { Upload, Image as ImageIcon, X } from 'lucide-react';
+import { Upload, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -86,18 +86,6 @@ export function ImageUploader({ onImageLoad, currentImage, onClear }: ImageUploa
     }
   }, [loadImage]);
 
-  const handlePaste = useCallback((e: ClipboardEvent) => {
-    const items = Array.from(e.clipboardData?.items || []);
-    const imageItem = items.find(item => item.type.startsWith('image/'));
-    
-    if (imageItem) {
-      const file = imageItem.getAsFile();
-      if (file) {
-        loadImage(file);
-      }
-    }
-  }, [loadImage]);
-
   if (currentImage) {
     return (
       <Card className="relative overflow-hidden">
@@ -129,7 +117,7 @@ export function ImageUploader({ onImageLoad, currentImage, onClear }: ImageUploa
   return (
     <Card
       className={cn(
-        "border-2 border-dashed transition-colors cursor-pointer",
+        "border-2 border-dashed transition-colors cursor-pointer w-full max-w-md mx-auto",
         isDragging && "border-primary bg-primary/5",
         isLoading && "opacity-50 pointer-events-none"
       )}
@@ -138,16 +126,16 @@ export function ImageUploader({ onImageLoad, currentImage, onClear }: ImageUploa
       onDragLeave={handleDragLeave}
       onClick={() => document.getElementById('file-input')?.click()}
     >
-      <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-        <div className="mb-4 rounded-full bg-primary/10 p-4">
-          <Upload className="h-8 w-8 text-primary" />
+      <div className="flex flex-col items-center justify-center py-8 px-6 text-center">
+        <div className="mb-3 rounded-full bg-primary/10 p-3">
+          <Upload className="h-6 w-6 text-primary" />
         </div>
-        <h3 className="mb-2 text-lg font-semibold">上传图片</h3>
-        <p className="mb-4 text-sm text-muted-foreground max-w-xs">
-          拖拽图片到此处，或点击选择文件
+        <h3 className="mb-1 text-base font-semibold">上传图片</h3>
+        <p className="mb-2 text-sm text-muted-foreground">
+          拖拽图片到此处，或点击选择
         </p>
         <p className="text-xs text-muted-foreground">
-          支持 JPG, PNG, GIF, WebP 格式
+          支持 JPG, PNG, GIF, WebP
         </p>
       </div>
       <input

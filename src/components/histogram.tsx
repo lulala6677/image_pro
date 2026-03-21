@@ -51,12 +51,11 @@ function HistogramChart({ data, color, label }: { data: number[]; color: string;
   const max = useMemo(() => Math.max(...data, 1), [data]);
   
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       <div className="flex justify-between text-xs">
         <span className="font-medium">{label}</span>
-        <span className="text-muted-foreground">像素值分布</span>
       </div>
-      <div className="h-32 flex items-end gap-px bg-muted/30 rounded p-2">
+      <div className="h-24 flex items-end gap-px bg-muted/30 rounded p-1.5">
         {data.map((value, index) => (
           <div
             key={index}
@@ -116,25 +115,25 @@ function HistogramDisplay({ dataUrl }: { dataUrl: string }) {
 export function Histogram({ dataUrl }: HistogramProps) {
   if (!dataUrl) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm">直方图</CardTitle>
-        </CardHeader>
-        <CardContent className="text-center text-muted-foreground text-sm py-8">
+      <div className="h-full flex flex-col bg-card">
+        <div className="px-3 py-2 border-b flex-shrink-0">
+          <span className="text-sm font-semibold">直方图</span>
+        </div>
+        <div className="flex-1 flex items-center justify-center text-muted-foreground text-xs p-4">
           上传图片后显示直方图
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     );
   }
 
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm">直方图</CardTitle>
-      </CardHeader>
-      <CardContent>
+    <div className="h-full flex flex-col bg-card">
+      <div className="px-3 py-2 border-b flex-shrink-0">
+        <span className="text-sm font-semibold">直方图</span>
+      </div>
+      <div className="flex-1 p-2 overflow-auto">
         <HistogramDisplay dataUrl={dataUrl} />
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
