@@ -327,104 +327,92 @@ export default function ImageProcessorPage() {
       </header>
 
       {/* 主内容区 */}
-      <div className="flex-1 overflow-hidden">
-        <ResizablePanelGroup orientation="horizontal" className="h-full">
-          {/* 左侧：操作面板 */}
-          <ResizablePanel defaultSize={20} minSize={15} maxSize={35} className="min-w-[200px]">
-            <OperationPanel onApply={applyOperation} isProcessing={isProcessing} />
-          </ResizablePanel>
+      <div className="flex-1 min-h-0 flex">
+        {/* 左侧：操作面板 */}
+        <div className="w-[220px] flex-shrink-0 border-r overflow-hidden">
+          <OperationPanel onApply={applyOperation} isProcessing={isProcessing} />
+        </div>
 
-          <ResizableHandle withHandle />
+        {/* 中间：图像预览 */}
+        <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+          {/* 缩放控制 */}
+          <div className="flex items-center justify-center gap-2 py-2 border-b bg-background flex-shrink-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setZoom(z => Math.max(10, z - 10))}
+            >
+              <ZoomOut className="h-4 w-4" />
+            </Button>
+            <span className="text-sm w-16 text-center">{zoom}%</span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setZoom(z => Math.min(200, z + 10))}
+            >
+              <ZoomIn className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setZoom(100)}
+            >
+              <Maximize className="h-4 w-4" />
+            </Button>
+          </div>
 
-          {/* 中间：图像预览 */}
-          <ResizablePanel defaultSize={60} minSize={40} className="flex flex-col">
-            <div className="h-full flex flex-col">
-              {/* 缩放控制 */}
-              <div className="flex items-center justify-center gap-2 py-2 border-b bg-background flex-shrink-0">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={() => setZoom(z => Math.max(10, z - 10))}
-                >
-                  <ZoomOut className="h-4 w-4" />
-                </Button>
-                <span className="text-sm w-16 text-center">{zoom}%</span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={() => setZoom(z => Math.min(200, z + 10))}
-                >
-                  <ZoomIn className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={() => setZoom(100)}
-                >
-                  <Maximize className="h-4 w-4" />
-                </Button>
-              </div>
-
-              {/* 图像显示区 */}
-              <div className="flex-1 overflow-auto flex items-center justify-center p-4 bg-muted/30">
-                {displayImage ? (
-                  <div
-                    className="relative transition-transform duration-200 origin-center"
-                    style={{ transform: `scale(${zoom / 100})` }}
-                  >
-                    <img
-                      src={displayImage.dataUrl}
-                      alt=""
-                      className="max-w-full max-h-[calc(100vh-200px)] object-contain rounded-lg shadow-lg"
-                    />
-                    {isProcessing && (
-                      <div className="absolute inset-0 bg-black/20 flex items-center justify-center rounded-lg">
-                        <div className="bg-background px-4 py-2 rounded-lg shadow-lg">
-                          <span className="text-sm">处理中...</span>
-                        </div>
-                      </div>
-                    )}
+          {/* 图像显示区 */}
+          <div className="flex-1 min-h-0 overflow-auto flex items-center justify-center p-4 bg-muted/30">
+            {displayImage ? (
+              <div
+                className="relative transition-transform duration-200 origin-center"
+                style={{ transform: `scale(${zoom / 100})` }}
+              >
+                <img
+                  src={displayImage.dataUrl}
+                  alt=""
+                  className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
+                />
+                {isProcessing && (
+                  <div className="absolute inset-0 bg-black/20 flex items-center justify-center rounded-lg">
+                    <div className="bg-background px-4 py-2 rounded-lg shadow-lg">
+                      <span className="text-sm">处理中...</span>
+                    </div>
                   </div>
-                ) : (
-                  <ImageUploader
-                    onImageLoad={setCurrentImage}
-                    currentImage={null}
-                  />
                 )}
               </div>
-            </div>
-          </ResizablePanel>
+            ) : (
+              <ImageUploader
+                onImageLoad={setCurrentImage}
+                currentImage={null}
+              />
+            )}
+          </div>
+        </div>
 
-          <ResizableHandle withHandle />
-
-          {/* 右侧：直方图和历史 */}
-          <ResizablePanel defaultSize={20} minSize={15} maxSize={35} className="min-w-[200px]">
-            <Tabs defaultValue="histogram" className="h-full flex flex-col">
-              <TabsList className="mx-3 mt-2 flex-shrink-0">
-                <TabsTrigger value="histogram" className="text-xs">直方图</TabsTrigger>
-                <TabsTrigger value="history" className="text-xs">历史</TabsTrigger>
-              </TabsList>
-              <TabsContent value="histogram" className="flex-1 m-0 overflow-hidden">
-                <div className="p-3 h-full overflow-auto">
-                  <Histogram dataUrl={displayImage?.dataUrl || ''} />
-                </div>
-              </TabsContent>
-              <TabsContent value="history" className="flex-1 m-0 overflow-hidden">
-                <div className="p-3 h-full overflow-auto">
-                  <HistoryPanel
-                    entries={history}
-                    currentId={processedImage?.id}
-                    onRestore={handleRestore}
-                    onClear={handleClearHistory}
-                  />
-                </div>
-              </TabsContent>
-            </Tabs>
-          </ResizablePanel>
-        </ResizablePanelGroup>
+        {/* 右侧：直方图和历史 */}
+        <div className="w-[220px] flex-shrink-0 border-l overflow-hidden">
+          <Tabs defaultValue="histogram" className="h-full w-full flex flex-col">
+            <TabsList className="mx-2 mt-2 flex-shrink-0">
+              <TabsTrigger value="histogram" className="text-xs">直方图</TabsTrigger>
+              <TabsTrigger value="history" className="text-xs">历史</TabsTrigger>
+            </TabsList>
+            <TabsContent value="histogram" className="flex-1 min-h-0 m-0 overflow-auto p-2">
+              <Histogram dataUrl={displayImage?.dataUrl || ''} />
+            </TabsContent>
+            <TabsContent value="history" className="flex-1 min-h-0 m-0 overflow-auto p-2">
+              <HistoryPanel
+                entries={history}
+                currentId={processedImage?.id}
+                onRestore={handleRestore}
+                onClear={handleClearHistory}
+              />
+            </TabsContent>
+          </Tabs>
+        </div>
       </div>
 
       {/* 对比视图 */}

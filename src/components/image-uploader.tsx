@@ -117,7 +117,8 @@ export function ImageUploader({ onImageLoad, currentImage, onClear }: ImageUploa
   return (
     <Card
       className={cn(
-        "border-2 border-dashed transition-colors cursor-pointer w-full max-w-lg mx-auto",
+        "border-2 border-dashed transition-colors cursor-pointer",
+        "w-[360px] h-[280px] flex-shrink-0",
         isDragging && "border-primary bg-primary/5",
         isLoading && "opacity-50 pointer-events-none"
       )}
@@ -126,7 +127,7 @@ export function ImageUploader({ onImageLoad, currentImage, onClear }: ImageUploa
       onDragLeave={handleDragLeave}
       onClick={() => document.getElementById('file-input')?.click()}
     >
-      <div className="flex flex-col items-center justify-center py-6 px-4 text-center">
+      <div className="flex flex-col items-center justify-center h-full text-center px-4">
         <div className="mb-2 rounded-full bg-primary/10 p-2.5">
           <Upload className="h-5 w-5 text-primary" />
         </div>
