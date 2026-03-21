@@ -267,6 +267,7 @@ export default function ImageProcessorPage() {
   // 重置图像
   const handleReset = useCallback(() => {
     setProcessedImage(null);
+    setHistory([]);
     setHistoryIndex(-1);
   }, []);
 
