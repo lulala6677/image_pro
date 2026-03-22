@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 
 interface HistogramProps {
   dataUrl: string;
@@ -16,6 +16,8 @@ interface HistogramData {
 async function getHistogramFromImage(dataUrl: string): Promise<HistogramData> {
   return new Promise((resolve, reject) => {
     const img = new Image();
+    // 允许跨域
+    img.crossOrigin = 'anonymous';
     img.onload = () => {
       try {
         const canvas = document.createElement('canvas');
@@ -37,45 +39,66 @@ async function getHistogramFromImage(dataUrl: string): Promise<HistogramData> {
         const gray = new Array(256).fill(0);
         
         for (let i = 0; i < data.length; i += 4) {
-          r[data[i]]++;
-          g[data[i + 1]]++;
-          b[data[i + 2]]++;
-          const grayVal = Math.round(0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]);
+          const rVal = Math.min(255, Math.max(0, data[i]));
+          const gVal = Math.min(255, Math.max(0, data[i + 1]));
+          const bVal = Math.min(255, Math.max(0, data[i + 2]));
+          r[rVal]++;
+          g[gVal]++;
+          b[bVal]++;
+          const grayVal = Math.min(255, Math.max(0, Math.round(0.299 * rVal + 0.587 * gVal + 0.114 * bVal)));
           gray[grayVal]++;
         }
         
         resolve({ r, g, b, gray });
       } catch (err) {
+        console.error('Histogram error:', err);
         reject(err);
       }
     };
-    img.onerror = () => reject(new Error('图片加载失败'));
+    img.onerror = (e) => {
+      console.error('Image load error:', e);
+      reject(new Error('图片加载失败'));
+    };
     img.src = dataUrl;
   });
 }
 
 function HistogramChart({ data, color, label }: { data: number[]; color: string; label: string }) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const max = useMemo(() => Math.max(...data, 1), [data]);
+  
+  // 将数据转换为 SVG 路径
+  const bars = useMemo(() => {
+    return data.map((value, index) => ({
+      height: (value / max) * 100,
+      index
+    }));
+  }, [data, max]);
   
   return (
     <div className="space-y-1">
-      <div className="flex justify-between text-xs">
+      <div className="flex justify-between text-xs px-1">
         <span className="font-medium text-muted-foreground">{label}</span>
-        <span className="text-muted-foreground">0-255</span>
+        <span className="text-muted-foreground text-[10px]">0-255</span>
       </div>
-      <div className="h-16 flex items-end gap-px bg-muted/50 rounded px-1 py-0.5">
-        {data.map((value, index) => (
-          <div
-            key={index}
-            className="flex-1 rounded-t transition-all duration-100"
-            style={{
-              height: `${(value / max) * 100}%`,
-              backgroundColor: color,
-              opacity: 0.8,
-              minHeight: value > 0 ? '1px' : '0'
-            }}
-          />
-        ))}
+      <div 
+        ref={containerRef}
+        className="h-12 bg-muted/30 rounded overflow-hidden relative"
+      >
+        <div className="absolute inset-0 flex">
+          {bars.map((bar) => (
+            <div
+              key={bar.index}
+              className="flex-1"
+              style={{
+                backgroundColor: color,
+                opacity: 0.7,
+                marginTop: `${100 - bar.height}%`,
+                minHeight: bar.height > 0 ? '1px' : '0'
+              }}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -84,25 +107,35 @@ function HistogramChart({ data, color, label }: { data: number[]; color: string;
 function HistogramDisplay({ dataUrl }: { dataUrl: string }) {
   const [data, setData] = useState<HistogramData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   
   useEffect(() => {
+    if (!dataUrl) return;
+    
     setData(null);
     setError(null);
+    setLoading(true);
+    
     getHistogramFromImage(dataUrl)
       .then(setData)
-      .catch(err => setError(err.message));
+      .catch(err => setError(err.message))
+      .finally(() => setLoading(false));
   }, [dataUrl]);
+  
+  if (loading) {
+    return <div className="text-center text-muted-foreground text-xs py-4">计算直方图...</div>;
+  }
   
   if (error) {
     return <div className="text-center text-destructive text-xs py-2">错误: {error}</div>;
   }
   
   if (!data) {
-    return <div className="text-center text-muted-foreground text-xs py-4">计算中...</div>;
+    return <div className="text-center text-muted-foreground text-xs py-4">等待图片...</div>;
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <HistogramChart data={data.gray} color="#6b7280" label="灰度" />
       <HistogramChart data={data.r} color="#ef4444" label="红色 (R)" />
       <HistogramChart data={data.g} color="#22c55e" label="绿色 (G)" />
@@ -123,7 +156,7 @@ export function Histogram({ dataUrl }: HistogramProps) {
 
   return (
     <div className="h-full overflow-auto p-2">
-      <div className="text-sm font-semibold mb-2">直方图</div>
+      <div className="text-xs font-medium text-muted-foreground mb-2">直方图</div>
       <HistogramDisplay dataUrl={dataUrl} />
     </div>
   );
