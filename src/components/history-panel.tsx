@@ -1,10 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { History, RotateCcw, Trash2, Download, ChevronLeft, ChevronRight } from 'lucide-react';
+import { History, RotateCcw, Trash2, Download, ChevronLeft, ChevronRight, X, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 
 export interface HistoryEntry {
@@ -23,47 +21,50 @@ interface HistoryPanelProps {
 }
 
 export function HistoryPanel({ entries, currentId, onRestore, onClear }: HistoryPanelProps) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
-
   if (entries.length === 0) {
     return (
-      <Card className="h-full">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <History className="h-4 w-4" />
-            历史记录
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="text-center text-muted-foreground text-sm py-8">
-          处理图片后将记录历史
-        </CardContent>
-      </Card>
+      <div className="h-full flex flex-col items-center justify-center text-white/40 p-6">
+        <Clock className="h-12 w-12 mb-3 opacity-30" />
+        <p className="text-sm font-medium">暂无历史</p>
+        <p className="text-xs mt-1">处理图片后将记录历史</p>
+      </div>
     );
   }
 
   return (
-    <div className="h-full flex flex-col bg-card">
-      <div className="px-3 py-2 border-b flex items-center justify-between flex-shrink-0">
+    <div className="h-full flex flex-col">
+      <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-2">
-          <History className="h-4 w-4" />
-          <span className="text-sm font-semibold">历史记录</span>
+          <History className="h-4 w-4 text-violet-400" />
+          <span className="text-sm font-medium text-white/80">历史记录</span>
+          <span className="text-xs text-white/40 bg-white/10 px-2 py-0.5 rounded-full">
+            {entries.length}
+          </span>
         </div>
-        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onClear}>
-          <Trash2 className="h-3 w-3" />
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="h-7 w-7 text-white/50 hover:text-red-400 hover:bg-red-500/10" 
+          onClick={onClear}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
         </Button>
       </div>
-      <ScrollArea className="flex-1">
-        <div className="space-y-1.5 p-2">
+      <div className="flex-1 overflow-auto p-3">
+        <div className="space-y-2">
           {entries.map((entry, index) => (
             <div
               key={entry.id}
               className={cn(
-                "flex items-center gap-2 p-2 rounded-md cursor-pointer transition-colors",
-                currentId === entry.id ? "bg-primary/10 ring-1 ring-primary" : "hover:bg-muted"
+                "group flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-all duration-200",
+                "border border-transparent hover:border-white/10",
+                currentId === entry.id 
+                  ? "bg-gradient-to-r from-violet-600/30 to-fuchsia-600/30 border-violet-400/30" 
+                  : "bg-white/5 hover:bg-white/10"
               )}
               onClick={() => onRestore(entry.id)}
             >
-              <div className="w-10 h-10 rounded overflow-hidden bg-muted flex-shrink-0">
+              <div className="w-12 h-12 rounded-lg overflow-hidden bg-white/10 flex-shrink-0 border border-white/10">
                 <img
                   src={entry.thumbnail}
                   alt=""
@@ -71,26 +72,26 @@ export function HistoryPanel({ entries, currentId, onRestore, onClear }: History
                 />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium truncate">{entry.operation}</p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-sm font-medium text-white/90 truncate">{entry.operation}</p>
+                <p className="text-xs text-white/40">
                   #{index + 1} · {formatTime(entry.timestamp)}
                 </p>
               </div>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-6 w-6 flex-shrink-0"
+                className="h-7 w-7 flex-shrink-0 text-white/40 hover:text-violet-400 hover:bg-violet-500/10 opacity-0 group-hover:opacity-100 transition-opacity"
                 onClick={(e) => {
                   e.stopPropagation();
                   onRestore(entry.id);
                 }}
               >
-                <RotateCcw className="h-3 w-3" />
+                <RotateCcw className="h-3.5 w-3.5" />
               </Button>
             </div>
           ))}
         </div>
-      </ScrollArea>
+      </div>
     </div>
   );
 }
@@ -129,25 +130,37 @@ export function CompareView({ original, processed, onClose, onDownload }: Compar
   const handleMouseUp = () => setIsDragging(false);
 
   return (
-    <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center">
-      <div className="relative w-full max-w-5xl h-[80vh] bg-background rounded-lg overflow-hidden">
+    <div className="fixed inset-0 bg-black/90 backdrop-blur-xl z-50 flex items-center justify-center">
+      <div className="relative w-full max-w-6xl h-[85vh] rounded-2xl overflow-hidden border border-white/10 bg-slate-900/50">
         {/* 头部 */}
-        <div className="absolute top-0 left-0 right-0 flex items-center justify-between p-4 bg-gradient-to-b from-black/50 to-transparent z-10">
+        <div className="absolute top-0 left-0 right-0 flex items-center justify-between p-4 bg-gradient-to-b from-black/80 to-transparent z-10">
           <div className="flex items-center gap-4">
-            <span className="text-white text-sm font-medium">对比视图</span>
-            <span className="text-white/70 text-xs">
+            <div className="flex items-center gap-2">
+              <div className="h-2 w-2 rounded-full bg-gradient-to-r from-violet-400 to-fuchsia-400 animate-pulse" />
+              <span className="text-white text-sm font-medium">对比视图</span>
+            </div>
+            <span className="text-white/50 text-xs">
               拖动滑块对比原图与处理后效果
             </span>
           </div>
           <div className="flex items-center gap-2">
             {onDownload && (
-              <Button variant="secondary" size="sm" onClick={onDownload}>
-                <Download className="h-4 w-4 mr-1" />
+              <Button 
+                size="sm" 
+                onClick={onDownload}
+                className="bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white border-0"
+              >
+                <Download className="h-4 w-4 mr-1.5" />
                 下载
               </Button>
             )}
-            <Button variant="secondary" size="sm" onClick={onClose}>
-              关闭
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={onClose}
+              className="text-white/60 hover:text-white hover:bg-white/10"
+            >
+              <X className="h-5 w-5" />
             </Button>
           </div>
         </div>
@@ -163,7 +176,7 @@ export function CompareView({ original, processed, onClose, onDownload }: Compar
           <img
             src={processed}
             alt="处理后"
-            className="absolute inset-0 w-full h-full object-contain"
+            className="absolute inset-0 w-full h-full object-contain p-12"
           />
           
           {/* 原图 */}
@@ -174,19 +187,19 @@ export function CompareView({ original, processed, onClose, onDownload }: Compar
             <img
               src={original}
               alt="原图"
-              className="absolute inset-0 h-full object-contain"
+              className="absolute inset-0 h-full object-contain p-12"
               style={{ width: `${100 / (sliderPosition / 100)}%`, maxWidth: 'none' }}
             />
           </div>
 
           {/* 滑块 */}
           <div
-            className="absolute top-0 bottom-0 w-1 bg-white cursor-ew-resize z-20"
+            className="absolute top-0 bottom-0 w-1 bg-white cursor-ew-resize z-20 shadow-lg shadow-white/20"
             style={{ left: `${sliderPosition}%` }}
             onMouseDown={handleMouseDown}
           >
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center">
-              <div className="flex items-center gap-1">
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 bg-white rounded-full shadow-2xl flex items-center justify-center">
+              <div className="flex items-center gap-0.5 text-slate-600">
                 <ChevronLeft className="h-4 w-4" />
                 <ChevronRight className="h-4 w-4" />
               </div>
@@ -194,10 +207,10 @@ export function CompareView({ original, processed, onClose, onDownload }: Compar
           </div>
 
           {/* 标签 */}
-          <div className="absolute bottom-4 left-4 bg-black/70 text-white text-xs px-2 py-1 rounded">
+          <div className="absolute bottom-6 left-6 bg-black/80 backdrop-blur-sm text-white text-xs px-3 py-1.5 rounded-full border border-white/20">
             原图
           </div>
-          <div className="absolute bottom-4 right-4 bg-black/70 text-white text-xs px-2 py-1 rounded">
+          <div className="absolute bottom-6 right-6 bg-gradient-to-r from-violet-600/80 to-fuchsia-600/80 backdrop-blur-sm text-white text-xs px-3 py-1.5 rounded-full border border-white/20">
             处理后
           </div>
         </div>

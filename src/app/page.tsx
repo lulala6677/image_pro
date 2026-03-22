@@ -1,14 +1,14 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { Download, Undo2, GitCompareArrows, ZoomIn, ZoomOut, Maximize } from 'lucide-react';
+import { Download, Undo2, GitCompareArrows, ZoomIn, ZoomOut, Maximize, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { ImageUploader, ImageFile } from '@/components/image-uploader';
 import { OperationPanel } from '@/components/operation-panel';
 import { Histogram } from '@/components/histogram';
 import { HistoryPanel, HistoryEntry, CompareView } from '@/components/history-panel';
+import { BubblesBackground } from '@/components/ui/bubbles-background';
 import { 
   resize, rotate, flip, translate,
   toGrayscale, binary, logarithmicTransform, inverseTransform, gammaTransform,
@@ -286,71 +286,87 @@ export default function ImageProcessorPage() {
   const displayImage = processedImage || currentImage;
 
   return (
-    <div className="h-screen flex flex-col bg-background">
+    <div className="h-screen flex flex-col relative overflow-hidden">
+      {/* 动态泡泡背景 */}
+      <BubblesBackground />
+      
+      {/* 背景渐变层 */}
+      <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-purple-950 to-slate-900 -z-10" />
+      
       {/* 顶部工具栏 */}
-      <header className="border-b px-4 py-2 flex items-center justify-between flex-shrink-0">
-        <div className="flex items-center gap-2">
-          <h1 className="text-lg font-bold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
-            ImagePro
-          </h1>
-          <span className="text-xs text-muted-foreground">数字图像处理平台</span>
+      <header className="relative z-10 px-6 py-4 flex items-center justify-between flex-shrink-0 border-b border-white/10 bg-white/5 backdrop-blur-xl">
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <div className="absolute inset-0 bg-gradient-to-r from-violet-500 to-fuchsia-500 blur-lg opacity-50 animate-pulse" />
+            <div className="relative bg-gradient-to-r from-violet-500 via-fuchsia-500 to-cyan-400 bg-clip-text text-transparent">
+              <h1 className="text-2xl font-bold tracking-tight">ImagePro</h1>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 text-white/60">
+            <Sparkles className="h-3 w-3" />
+            <span className="text-xs font-light tracking-wide">数字图像处理平台</span>
+          </div>
         </div>
         
         <div className="flex items-center gap-2">
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
             onClick={handleReset}
             disabled={!processedImage}
+            className="text-white/70 hover:text-white hover:bg-white/10 border border-white/10"
           >
-            <Undo2 className="h-4 w-4 mr-1" />
+            <Undo2 className="h-4 w-4 mr-1.5" />
             重置
           </Button>
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
             onClick={() => setShowCompare(true)}
             disabled={!processedImage || !currentImage}
+            className="text-white/70 hover:text-white hover:bg-white/10 border border-white/10"
           >
-            <GitCompareArrows className="h-4 w-4 mr-1" />
+            <GitCompareArrows className="h-4 w-4 mr-1.5" />
             对比
           </Button>
           <Button
-            variant="default"
             size="sm"
             onClick={handleDownload}
             disabled={!displayImage}
+            className="bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white border-0 shadow-lg shadow-violet-500/25"
           >
-            <Download className="h-4 w-4 mr-1" />
+            <Download className="h-4 w-4 mr-1.5" />
             下载
           </Button>
         </div>
       </header>
 
       {/* 主内容区 */}
-      <div className="flex-1 min-h-0 flex">
+      <div className="flex-1 min-h-0 flex relative z-10">
         {/* 左侧：操作面板 */}
-        <div className="w-[220px] flex-shrink-0 border-r overflow-hidden">
+        <div className="w-[260px] flex-shrink-0 border-r border-white/10 overflow-hidden bg-white/5 backdrop-blur-xl">
           <OperationPanel onApply={applyOperation} isProcessing={isProcessing} />
         </div>
 
         {/* 中间：图像预览 */}
         <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
           {/* 缩放控制 */}
-          <div className="flex items-center justify-center gap-2 py-2 border-b bg-background flex-shrink-0">
+          <div className="flex items-center justify-center gap-3 py-3 border-b border-white/10 bg-white/5 backdrop-blur-xl flex-shrink-0">
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7"
+              className="h-8 w-8 text-white/60 hover:text-white hover:bg-white/10"
               onClick={() => setZoom(z => Math.max(10, z - 10))}
             >
               <ZoomOut className="h-4 w-4" />
             </Button>
-            <span className="text-sm w-16 text-center">{zoom}%</span>
+            <div className="px-4 py-1 rounded-full bg-white/10 border border-white/20">
+              <span className="text-sm text-white/80 font-medium">{zoom}%</span>
+            </div>
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7"
+              className="h-8 w-8 text-white/60 hover:text-white hover:bg-white/10"
               onClick={() => setZoom(z => Math.min(200, z + 10))}
             >
               <ZoomIn className="h-4 w-4" />
@@ -358,7 +374,7 @@ export default function ImageProcessorPage() {
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7"
+              className="h-8 w-8 text-white/60 hover:text-white hover:bg-white/10"
               onClick={() => setZoom(100)}
             >
               <Maximize className="h-4 w-4" />
@@ -366,21 +382,23 @@ export default function ImageProcessorPage() {
           </div>
 
           {/* 图像显示区 */}
-          <div className="flex-1 min-h-0 overflow-auto flex items-center justify-center p-4 bg-muted/30">
+          <div className="flex-1 min-h-0 overflow-auto flex items-center justify-center p-6">
             {displayImage ? (
               <div
-                className="relative transition-transform duration-200 origin-center"
+                className="relative transition-transform duration-300 ease-out origin-center"
                 style={{ transform: `scale(${zoom / 100})` }}
               >
+                <div className="absolute -inset-4 bg-gradient-to-r from-violet-500/20 via-fuchsia-500/20 to-cyan-500/20 blur-2xl rounded-3xl" />
                 <img
                   src={displayImage.dataUrl}
                   alt=""
-                  className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
+                  className="relative max-w-full max-h-[calc(100vh-220px)] object-contain rounded-2xl shadow-2xl shadow-black/50"
                 />
                 {isProcessing && (
-                  <div className="absolute inset-0 bg-black/20 flex items-center justify-center rounded-lg">
-                    <div className="bg-background px-4 py-2 rounded-lg shadow-lg">
-                      <span className="text-sm">处理中...</span>
+                  <div className="absolute inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center rounded-2xl">
+                    <div className="flex items-center gap-3 bg-white/10 backdrop-blur-xl px-6 py-3 rounded-full border border-white/20">
+                      <div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                      <span className="text-sm text-white font-medium">处理中...</span>
                     </div>
                   </div>
                 )}
@@ -395,16 +413,26 @@ export default function ImageProcessorPage() {
         </div>
 
         {/* 右侧：直方图和历史 */}
-        <div className="w-[220px] flex-shrink-0 border-l overflow-hidden">
+        <div className="w-[260px] flex-shrink-0 border-l border-white/10 overflow-hidden bg-white/5 backdrop-blur-xl">
           <Tabs defaultValue="histogram" className="h-full w-full flex flex-col">
-            <TabsList className="mx-2 mt-2 flex-shrink-0">
-              <TabsTrigger value="histogram" className="text-xs">直方图</TabsTrigger>
-              <TabsTrigger value="history" className="text-xs">历史</TabsTrigger>
+            <TabsList className="mx-4 mt-4 mb-2 flex-shrink-0 bg-white/10 border border-white/10 p-1">
+              <TabsTrigger 
+                value="histogram" 
+                className="text-xs data-[state=active]:bg-white/20 data-[state=active]:text-white text-white/60"
+              >
+                直方图
+              </TabsTrigger>
+              <TabsTrigger 
+                value="history" 
+                className="text-xs data-[state=active]:bg-white/20 data-[state=active]:text-white text-white/60"
+              >
+                历史
+              </TabsTrigger>
             </TabsList>
-            <TabsContent value="histogram" className="flex-1 min-h-0 m-0 overflow-auto p-2">
+            <TabsContent value="histogram" className="flex-1 min-h-0 m-0 overflow-auto">
               <Histogram dataUrl={displayImage?.dataUrl || ''} />
             </TabsContent>
-            <TabsContent value="history" className="flex-1 min-h-0 m-0 overflow-auto p-2">
+            <TabsContent value="history" className="flex-1 min-h-0 m-0 overflow-auto">
               <HistoryPanel
                 entries={history}
                 currentId={processedImage?.id}

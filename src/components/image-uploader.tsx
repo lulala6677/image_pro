@@ -1,9 +1,8 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { Upload, X } from 'lucide-react';
+import { Upload, X, Image as ImageIcon, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 export interface ImageFile {
@@ -88,57 +87,92 @@ export function ImageUploader({ onImageLoad, currentImage, onClear }: ImageUploa
 
   if (currentImage) {
     return (
-      <Card className="relative overflow-hidden">
-        <div className="aspect-video relative bg-muted/50 flex items-center justify-center p-4">
+      <div className="relative overflow-hidden rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10">
+        <div className="aspect-video relative flex items-center justify-center p-4">
           <img
             src={currentImage.dataUrl}
             alt={currentImage.name}
-            className="max-w-full max-h-full object-contain rounded"
+            className="max-w-full max-h-full object-contain rounded-lg"
           />
           <Button
-            variant="destructive"
+            variant="ghost"
             size="icon"
-            className="absolute top-2 right-2 h-8 w-8"
+            className="absolute top-3 right-3 h-8 w-8 bg-white/10 hover:bg-red-500/80 text-white/80 hover:text-white border border-white/20 backdrop-blur-sm"
             onClick={onClear}
           >
             <X className="h-4 w-4" />
           </Button>
         </div>
-        <div className="p-3 border-t">
-          <p className="text-sm font-medium truncate">{currentImage.name}</p>
-          <p className="text-xs text-muted-foreground">
+        <div className="p-3 border-t border-white/10 bg-white/5">
+          <p className="text-sm font-medium truncate text-white/80">{currentImage.name}</p>
+          <p className="text-xs text-white/50">
             {currentImage.width} × {currentImage.height} px
           </p>
         </div>
-      </Card>
+      </div>
     );
   }
 
   return (
-    <Card
+    <div
       className={cn(
-        "border-2 border-dashed transition-colors cursor-pointer",
-        "w-[360px] h-[280px] flex-shrink-0",
-        isDragging && "border-primary bg-primary/5",
-        isLoading && "opacity-50 pointer-events-none"
+        "relative group cursor-pointer",
+        "w-[400px] h-[320px] flex-shrink-0",
+        "rounded-2xl overflow-hidden",
+        "transition-all duration-300",
+        isDragging && "scale-[1.02]"
       )}
       onDrop={handleDrop}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onClick={() => document.getElementById('file-input')?.click()}
     >
-      <div className="flex flex-col items-center justify-center h-full text-center px-4">
-        <div className="mb-2 rounded-full bg-primary/10 p-2.5">
-          <Upload className="h-5 w-5 text-primary" />
-        </div>
-        <h3 className="mb-1 text-sm font-semibold">上传图片</h3>
-        <p className="mb-1 text-xs text-muted-foreground">
-          拖拽图片到此处，或点击选择
-        </p>
-        <p className="text-xs text-muted-foreground">
-          支持 JPG, PNG, GIF, WebP
-        </p>
+      {/* 背景渐变 */}
+      <div className={cn(
+        "absolute inset-0 bg-gradient-to-br from-violet-600/20 via-fuchsia-600/20 to-cyan-600/20",
+        "backdrop-blur-xl border-2 border-dashed transition-all duration-300",
+        isDragging 
+          ? "border-violet-400/80 bg-violet-500/10" 
+          : "border-white/20 hover:border-violet-400/50 hover:bg-white/5",
+        isLoading && "opacity-50 pointer-events-none"
+      )} />
+      
+      {/* 动态光效 */}
+      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+        <div className="absolute top-0 left-1/4 w-32 h-32 bg-violet-500/30 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute bottom-0 right-1/4 w-32 h-32 bg-fuchsia-500/30 rounded-full blur-3xl animate-pulse delay-100" />
       </div>
+      
+      {/* 内容 */}
+      <div className="relative flex flex-col items-center justify-center h-full text-center px-8">
+        <div className="relative mb-4">
+          {/* 外圈动画 */}
+          <div className="absolute inset-0 rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500 opacity-50 blur-xl animate-pulse" />
+          {/* 图标容器 */}
+          <div className={cn(
+            "relative rounded-full p-4 transition-all duration-300",
+            "bg-gradient-to-br from-violet-600/40 to-fuchsia-600/40",
+            "border border-white/20",
+            "group-hover:scale-110 group-hover:border-violet-400/50",
+            isDragging && "scale-110 border-violet-400"
+          )}>
+            <Upload className="h-8 w-8 text-white" />
+          </div>
+        </div>
+        
+        <h3 className="mb-2 text-lg font-semibold text-white">
+          上传图片
+        </h3>
+        <p className="mb-4 text-sm text-white/60 max-w-[280px]">
+          拖拽图片到此处，或点击选择文件
+        </p>
+        
+        <div className="flex items-center gap-2 text-xs text-white/40">
+          <Sparkles className="h-3 w-3" />
+          <span>支持 JPG, PNG, GIF, WebP</span>
+        </div>
+      </div>
+      
       <input
         id="file-input"
         type="file"
@@ -146,6 +180,6 @@ export function ImageUploader({ onImageLoad, currentImage, onClear }: ImageUploa
         className="hidden"
         onChange={handleFileInput}
       />
-    </Card>
+    </div>
   );
 }

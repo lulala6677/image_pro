@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState, useEffect, useRef } from 'react';
+import { BarChart3 } from 'lucide-react';
 
 interface HistogramProps {
   dataUrl: string;
@@ -16,7 +17,6 @@ interface HistogramData {
 async function getHistogramFromImage(dataUrl: string): Promise<HistogramData> {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    // 允许跨域
     img.crossOrigin = 'anonymous';
     img.onload = () => {
       try {
@@ -63,11 +63,15 @@ async function getHistogramFromImage(dataUrl: string): Promise<HistogramData> {
   });
 }
 
-function HistogramChart({ data, color, label }: { data: number[]; color: string; label: string }) {
-  const containerRef = useRef<HTMLDivElement>(null);
+function HistogramChart({ data, color, label, gradientFrom, gradientTo }: { 
+  data: number[]; 
+  color: string; 
+  label: string;
+  gradientFrom: string;
+  gradientTo: string;
+}) {
   const max = useMemo(() => Math.max(...data, 1), [data]);
   
-  // 将数据转换为 SVG 路径
   const bars = useMemo(() => {
     return data.map((value, index) => ({
       height: (value / max) * 100,
@@ -76,23 +80,20 @@ function HistogramChart({ data, color, label }: { data: number[]; color: string;
   }, [data, max]);
   
   return (
-    <div className="space-y-1">
+    <div className="space-y-1.5">
       <div className="flex justify-between text-xs px-1">
-        <span className="font-medium text-muted-foreground">{label}</span>
-        <span className="text-muted-foreground text-[10px]">0-255</span>
+        <span className="font-medium text-white/70">{label}</span>
+        <span className="text-white/40 font-mono text-[10px]">0-255</span>
       </div>
-      <div 
-        ref={containerRef}
-        className="h-12 bg-muted/30 rounded overflow-hidden relative"
-      >
+      <div className="h-10 bg-white/5 rounded-lg overflow-hidden relative border border-white/5">
         <div className="absolute inset-0 flex">
           {bars.map((bar) => (
             <div
               key={bar.index}
               className="flex-1"
               style={{
-                backgroundColor: color,
-                opacity: 0.7,
+                background: `linear-gradient(to top, ${gradientFrom}, ${gradientTo})`,
+                opacity: 0.8,
                 marginTop: `${100 - bar.height}%`,
                 minHeight: bar.height > 0 ? '1px' : '0'
               }}
@@ -123,23 +124,62 @@ function HistogramDisplay({ dataUrl }: { dataUrl: string }) {
   }, [dataUrl]);
   
   if (loading) {
-    return <div className="text-center text-muted-foreground text-xs py-4">计算直方图...</div>;
+    return (
+      <div className="flex items-center justify-center py-8">
+        <div className="flex items-center gap-2 text-white/50">
+          <div className="h-4 w-4 rounded-full border-2 border-white/20 border-t-violet-400 animate-spin" />
+          <span className="text-xs">计算直方图...</span>
+        </div>
+      </div>
+    );
   }
   
   if (error) {
-    return <div className="text-center text-destructive text-xs py-2">错误: {error}</div>;
+    return (
+      <div className="text-center py-4">
+        <span className="text-xs text-red-400/80">错误: {error}</span>
+      </div>
+    );
   }
   
   if (!data) {
-    return <div className="text-center text-muted-foreground text-xs py-4">等待图片...</div>;
+    return (
+      <div className="flex items-center justify-center py-8">
+        <span className="text-xs text-white/40">等待图片...</span>
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-3">
-      <HistogramChart data={data.gray} color="#6b7280" label="灰度" />
-      <HistogramChart data={data.r} color="#ef4444" label="红色 (R)" />
-      <HistogramChart data={data.g} color="#22c55e" label="绿色 (G)" />
-      <HistogramChart data={data.b} color="#3b82f6" label="蓝色 (B)" />
+    <div className="space-y-4">
+      <HistogramChart 
+        data={data.gray} 
+        label="灰度" 
+        gradientFrom="rgba(107, 114, 128, 0.6)"
+        gradientTo="rgba(107, 114, 128, 0.2)"
+        color="#6b7280" 
+      />
+      <HistogramChart 
+        data={data.r} 
+        label="红色 (R)" 
+        gradientFrom="rgba(239, 68, 68, 0.8)"
+        gradientTo="rgba(239, 68, 68, 0.2)"
+        color="#ef4444" 
+      />
+      <HistogramChart 
+        data={data.g} 
+        label="绿色 (G)" 
+        gradientFrom="rgba(34, 197, 94, 0.8)"
+        gradientTo="rgba(34, 197, 94, 0.2)"
+        color="#22c55e" 
+      />
+      <HistogramChart 
+        data={data.b} 
+        label="蓝色 (B)" 
+        gradientFrom="rgba(59, 130, 246, 0.8)"
+        gradientTo="rgba(59, 130, 246, 0.2)"
+        color="#3b82f6" 
+      />
     </div>
   );
 }
@@ -147,16 +187,20 @@ function HistogramDisplay({ dataUrl }: { dataUrl: string }) {
 export function Histogram({ dataUrl }: HistogramProps) {
   if (!dataUrl) {
     return (
-      <div className="h-full flex flex-col items-center justify-center text-muted-foreground text-xs p-4 text-center">
-        <p>上传图片后</p>
-        <p>显示直方图</p>
+      <div className="h-full flex flex-col items-center justify-center text-white/40 p-6">
+        <BarChart3 className="h-12 w-12 mb-3 opacity-30" />
+        <p className="text-sm font-medium">等待图片</p>
+        <p className="text-xs mt-1">上传图片后显示直方图</p>
       </div>
     );
   }
 
   return (
-    <div className="h-full overflow-auto p-2">
-      <div className="text-xs font-medium text-muted-foreground mb-2">直方图</div>
+    <div className="h-full overflow-auto p-4">
+      <div className="flex items-center gap-2 mb-4">
+        <BarChart3 className="h-4 w-4 text-violet-400" />
+        <span className="text-sm font-medium text-white/80">直方图</span>
+      </div>
       <HistogramDisplay dataUrl={dataUrl} />
     </div>
   );
