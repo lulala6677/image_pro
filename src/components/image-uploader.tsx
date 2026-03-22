@@ -117,7 +117,7 @@ export function ImageUploader({ onImageLoad, currentImage, onClear }: ImageUploa
     <div
       className={cn(
         "relative group cursor-pointer",
-        "w-[400px] h-[320px] flex-shrink-0",
+        "w-full max-w-[400px]",
         "rounded-2xl overflow-hidden",
         "transition-all duration-300",
         isDragging && "scale-[1.02]"
@@ -144,8 +144,8 @@ export function ImageUploader({ onImageLoad, currentImage, onClear }: ImageUploa
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 bg-yellow-400/15 rounded-full blur-2xl animate-pulse delay-200" />
       </div>
       
-      {/* 内容 */}
-      <div className="relative flex flex-col items-center justify-center h-full text-center px-8">
+      {/* 内容 - 自适应高度 */}
+      <div className="relative flex flex-col items-center justify-center py-12 px-8 text-center">
         <div className="relative mb-4">
           {/* 外圈动画 - 虹彩渐变 */}
           <div className="absolute inset-0 rounded-full bg-gradient-to-r from-orange-500 via-yellow-400 to-cyan-500 opacity-60 blur-xl animate-pulse" />
@@ -164,7 +164,7 @@ export function ImageUploader({ onImageLoad, currentImage, onClear }: ImageUploa
         <h3 className="mb-2 text-lg font-semibold text-white/90">
           上传图片
         </h3>
-        <p className="mb-4 text-sm text-white/50 max-w-[280px]">
+        <p className="mb-4 text-sm text-white/50">
           拖拽图片到此处，或点击选择文件
         </p>
         

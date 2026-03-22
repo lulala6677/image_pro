@@ -346,118 +346,120 @@ export default function ImageProcessorPage() {
       </header>
 
       {/* 主内容区 - 可调整大小 */}
-      <ResizablePanelGroup orientation="horizontal" className="flex-1 relative z-10">
-        {/* 左侧：操作面板 */}
-        <ResizablePanel defaultSize={18} minSize={15} maxSize={30}>
-          <div className="h-full overflow-hidden bg-black/40 backdrop-blur-xl">
-            <OperationPanel onApply={applyOperation} isProcessing={isProcessing} />
-          </div>
-        </ResizablePanel>
-
-        <ResizableHandle withHandle />
-
-        {/* 中间：图像预览 */}
-        <ResizablePanel defaultSize={52} minSize={30}>
-          <div className="h-full flex flex-col overflow-hidden bg-black/20">
-            {/* 缩放控制 */}
-            <div className="flex items-center justify-center gap-3 py-3 border-b border-white/10 bg-black/40 backdrop-blur-xl flex-shrink-0">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-white/50 hover:text-white hover:bg-white/10"
-                onClick={() => setZoom(z => Math.max(10, z - 10))}
-              >
-                <ZoomOut className="h-4 w-4" />
-              </Button>
-              <div className="px-4 py-1 rounded-full bg-white/5 border border-white/10">
-                <span className="text-sm text-white/70 font-medium">{zoom}%</span>
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-white/50 hover:text-white hover:bg-white/10"
-                onClick={() => setZoom(z => Math.min(200, z + 10))}
-              >
-                <ZoomIn className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-white/50 hover:text-white hover:bg-white/10"
-                onClick={() => setZoom(100)}
-              >
-                <Maximize className="h-4 w-4" />
-              </Button>
+      <div className="flex-1 min-h-0 relative z-10">
+        <ResizablePanelGroup orientation="horizontal" className="h-full">
+          {/* 左侧：操作面板 */}
+          <ResizablePanel defaultSize={18} minSize={15} maxSize={30}>
+            <div className="h-full w-full overflow-hidden bg-black/40 backdrop-blur-xl border-r border-white/10">
+              <OperationPanel onApply={applyOperation} isProcessing={isProcessing} />
             </div>
+          </ResizablePanel>
 
-            {/* 图像显示区 */}
-            <div className="flex-1 min-h-0 overflow-auto flex items-center justify-center p-6">
-              {displayImage ? (
-                <div
-                  className="relative transition-transform duration-300 ease-out origin-center"
-                  style={{ transform: `scale(${zoom / 100})` }}
+          <ResizableHandle withHandle />
+
+          {/* 中间：图像预览 */}
+          <ResizablePanel defaultSize={52} minSize={30}>
+            <div className="h-full w-full flex flex-col overflow-hidden bg-black/20">
+              {/* 缩放控制 */}
+              <div className="flex items-center justify-center gap-3 py-3 border-b border-white/10 bg-black/40 backdrop-blur-xl flex-shrink-0">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-white/50 hover:text-white hover:bg-white/10"
+                  onClick={() => setZoom(z => Math.max(10, z - 10))}
                 >
-                  {/* 虹彩光晕 */}
-                  <div className="absolute -inset-6 bg-gradient-to-r from-orange-500/30 via-yellow-400/20 via-cyan-400/30 to-purple-500/30 blur-3xl rounded-3xl animate-pulse" />
-                  <img
-                    src={displayImage.dataUrl}
-                    alt=""
-                    className="relative max-w-full max-h-[calc(100vh-220px)] object-contain rounded-2xl shadow-2xl shadow-black/80"
-                  />
-                  {isProcessing && (
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center rounded-2xl">
-                      <div className="flex items-center gap-3 bg-white/10 backdrop-blur-xl px-6 py-3 rounded-full border border-white/20">
-                        <div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-cyan-400 animate-spin" />
-                        <span className="text-sm text-white font-medium">处理中...</span>
-                      </div>
-                    </div>
-                  )}
+                  <ZoomOut className="h-4 w-4" />
+                </Button>
+                <div className="px-4 py-1 rounded-full bg-white/5 border border-white/10">
+                  <span className="text-sm text-white/70 font-medium">{zoom}%</span>
                 </div>
-              ) : (
-                <ImageUploader
-                  onImageLoad={setCurrentImage}
-                  currentImage={null}
-                />
-              )}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-white/50 hover:text-white hover:bg-white/10"
+                  onClick={() => setZoom(z => Math.min(200, z + 10))}
+                >
+                  <ZoomIn className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-white/50 hover:text-white hover:bg-white/10"
+                  onClick={() => setZoom(100)}
+                >
+                  <Maximize className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {/* 图像显示区 */}
+              <div className="flex-1 min-h-0 overflow-auto flex items-center justify-center p-6">
+                {displayImage ? (
+                  <div
+                    className="relative transition-transform duration-300 ease-out origin-center"
+                    style={{ transform: `scale(${zoom / 100})` }}
+                  >
+                    {/* 虹彩光晕 */}
+                    <div className="absolute -inset-6 bg-gradient-to-r from-orange-500/30 via-yellow-400/20 via-cyan-400/30 to-purple-500/30 blur-3xl rounded-3xl animate-pulse" />
+                    <img
+                      src={displayImage.dataUrl}
+                      alt=""
+                      className="relative max-w-full max-h-[calc(100vh-220px)] object-contain rounded-2xl shadow-2xl shadow-black/80"
+                    />
+                    {isProcessing && (
+                      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center rounded-2xl">
+                        <div className="flex items-center gap-3 bg-white/10 backdrop-blur-xl px-6 py-3 rounded-full border border-white/20">
+                          <div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-cyan-400 animate-spin" />
+                          <span className="text-sm text-white font-medium">处理中...</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <ImageUploader
+                    onImageLoad={setCurrentImage}
+                    currentImage={null}
+                  />
+                )}
+              </div>
             </div>
-          </div>
-        </ResizablePanel>
+          </ResizablePanel>
 
-        <ResizableHandle withHandle />
+          <ResizableHandle withHandle />
 
-        {/* 右侧：直方图和历史 */}
-        <ResizablePanel defaultSize={30} minSize={20} maxSize={40}>
-          <div className="h-full overflow-hidden bg-black/40 backdrop-blur-xl">
-            <Tabs defaultValue="histogram" className="h-full w-full flex flex-col">
-              <TabsList className="mx-4 mt-4 mb-2 flex-shrink-0 bg-white/5 border border-white/10 p-1">
-                <TabsTrigger 
-                  value="histogram" 
-                  className="text-xs data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500/30 data-[state=active]:to-cyan-500/30 data-[state=active]:text-white text-white/50"
-                >
-                  直方图
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="history" 
-                  className="text-xs data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500/30 data-[state=active]:to-cyan-500/30 data-[state=active]:text-white text-white/50"
-                >
-                  历史
-                </TabsTrigger>
-              </TabsList>
-              <TabsContent value="histogram" className="flex-1 min-h-0 m-0 overflow-auto">
-                <Histogram dataUrl={displayImage?.dataUrl || ''} />
-              </TabsContent>
-              <TabsContent value="history" className="flex-1 min-h-0 m-0 overflow-auto">
-                <HistoryPanel
-                  entries={history}
-                  currentId={processedImage?.id}
-                  onRestore={handleRestore}
-                  onClear={handleClearHistory}
-                />
-              </TabsContent>
-            </Tabs>
-          </div>
-        </ResizablePanel>
-      </ResizablePanelGroup>
+          {/* 右侧：直方图和历史 */}
+          <ResizablePanel defaultSize={30} minSize={20} maxSize={40}>
+            <div className="h-full w-full overflow-hidden bg-black/40 backdrop-blur-xl border-l border-white/10">
+              <Tabs defaultValue="histogram" className="h-full w-full flex flex-col">
+                <TabsList className="mx-4 mt-4 mb-2 flex-shrink-0 bg-white/5 border border-white/10 p-1">
+                  <TabsTrigger 
+                    value="histogram" 
+                    className="text-xs data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500/30 data-[state=active]:to-cyan-500/30 data-[state=active]:text-white text-white/50"
+                  >
+                    直方图
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="history" 
+                    className="text-xs data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500/30 data-[state=active]:to-cyan-500/30 data-[state=active]:text-white text-white/50"
+                  >
+                    历史
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="histogram" className="flex-1 min-h-0 m-0 overflow-auto">
+                  <Histogram dataUrl={displayImage?.dataUrl || ''} />
+                </TabsContent>
+                <TabsContent value="history" className="flex-1 min-h-0 m-0 overflow-auto">
+                  <HistoryPanel
+                    entries={history}
+                    currentId={processedImage?.id}
+                    onRestore={handleRestore}
+                    onClear={handleClearHistory}
+                  />
+                </TabsContent>
+              </Tabs>
+            </div>
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      </div>
 
       {/* 对比视图 */}
       {showCompare && currentImage && processedImage && (
