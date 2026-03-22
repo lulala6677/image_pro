@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { History, RotateCcw, Trash2, Download, ChevronLeft, ChevronRight, X, Clock } from 'lucide-react';
+import { useState, useRef, useCallback } from 'react';
+import { Clock, RotateCcw, Trash2, Zap, X, Download, ArrowLeftRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -9,8 +9,10 @@ export interface HistoryEntry {
   id: string;
   operation: string;
   params: Record<string, unknown>;
-  thumbnail: string;
   timestamp: number;
+  dataUrl: string;
+  width: number;
+  height: number;
 }
 
 interface HistoryPanelProps {
@@ -21,199 +23,269 @@ interface HistoryPanelProps {
 }
 
 export function HistoryPanel({ entries, currentId, onRestore, onClear }: HistoryPanelProps) {
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const leaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleMouseEnter = useCallback((id: string) => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+    if (leaveTimeoutRef.current) {
+      clearTimeout(leaveTimeoutRef.current);
+      leaveTimeoutRef.current = null;
+    }
+    hoverTimeoutRef.current = setTimeout(() => {
+      setHoveredId(id);
+    }, 300);
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+    leaveTimeoutRef.current = setTimeout(() => {
+      setHoveredId(null);
+    }, 200);
+  }, []);
+
   if (entries.length === 0) {
     return (
-      <div className="h-full flex flex-col items-center justify-center text-white/40 p-6">
-        <Clock className="h-12 w-12 mb-3 opacity-30" />
+      <div className="h-full flex flex-col items-center justify-center text-white/30 p-6">
+        <div className="relative mb-4">
+          <div className="absolute inset-0 rounded-full bg-gradient-to-r from-orange-500/20 to-cyan-500/20 blur-xl" />
+          <Clock className="relative h-12 w-12 opacity-30" />
+        </div>
         <p className="text-sm font-medium">暂无历史</p>
-        <p className="text-xs mt-1">处理图片后将记录历史</p>
+        <p className="text-xs mt-1 text-white/20">操作后将自动记录</p>
       </div>
     );
   }
 
   return (
     <div className="h-full flex flex-col">
-      <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between flex-shrink-0">
+      <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <History className="h-4 w-4 text-violet-400" />
-          <span className="text-sm font-medium text-white/80">历史记录</span>
-          <span className="text-xs text-white/40 bg-white/10 px-2 py-0.5 rounded-full">
+          <Clock className="h-4 w-4 text-orange-400" />
+          <span className="text-sm font-medium text-white/70">历史记录</span>
+          <span className="text-xs text-white/30 font-mono bg-white/5 px-1.5 py-0.5 rounded">
             {entries.length}
           </span>
         </div>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="h-7 w-7 text-white/50 hover:text-red-400 hover:bg-red-500/10" 
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 text-xs text-white/40 hover:text-red-400 hover:bg-red-500/10"
           onClick={onClear}
         >
-          <Trash2 className="h-3.5 w-3.5" />
+          <Trash2 className="h-3 w-3 mr-1" />
+          清空
         </Button>
       </div>
-      <div className="flex-1 overflow-auto p-3">
-        <div className="space-y-2">
-          {entries.map((entry, index) => (
-            <div
-              key={entry.id}
-              className={cn(
-                "group flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-all duration-200",
-                "border border-transparent hover:border-white/10",
-                currentId === entry.id 
-                  ? "bg-gradient-to-r from-violet-600/30 to-fuchsia-600/30 border-violet-400/30" 
-                  : "bg-white/5 hover:bg-white/10"
-              )}
-              onClick={() => onRestore(entry.id)}
-            >
-              <div className="w-12 h-12 rounded-lg overflow-hidden bg-white/10 flex-shrink-0 border border-white/10">
-                <img
-                  src={entry.thumbnail}
-                  alt=""
-                  className="w-full h-full object-cover"
-                />
+      
+      <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 space-y-2">
+        {[...entries].reverse().map((entry, index) => (
+          <div
+            key={entry.id}
+            className={cn(
+              "relative group cursor-pointer",
+              "rounded-xl overflow-hidden",
+              "bg-white/5 hover:bg-white/10",
+              "border border-white/10 hover:border-orange-400/50",
+              currentId === entry.id && "border-orange-400/70 bg-orange-500/10",
+              "transition-all duration-200"
+            )}
+            onMouseEnter={() => handleMouseEnter(entry.id)}
+            onMouseLeave={handleMouseLeave}
+            onClick={() => onRestore(entry.id)}
+          >
+            <div className="aspect-video relative overflow-hidden">
+              <img
+                src={entry.dataUrl}
+                alt={entry.operation}
+                className={cn(
+                  "w-full h-full object-cover",
+                  "transition-transform duration-300",
+                  hoveredId === entry.id && "scale-105"
+                )}
+              />
+              {/* 悬浮时的渐变覆盖层 - 虹彩风格 */}
+              <div className={cn(
+                "absolute inset-0",
+                "bg-gradient-to-t from-black/80 via-black/40 to-transparent",
+                "opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+              )} />
+              
+              {/* 操作标签 */}
+              <div className="absolute top-2 left-2">
+                <span className={cn(
+                  "px-2 py-0.5 rounded-md text-[10px] font-medium",
+                  "bg-gradient-to-r from-orange-500/80 to-cyan-500/80",
+                  "text-white backdrop-blur-sm"
+                )}>
+                  {entry.operation}
+                </span>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-white/90 truncate">{entry.operation}</p>
-                <p className="text-xs text-white/40">
-                  #{index + 1} · {formatTime(entry.timestamp)}
-                </p>
+              
+              {/* 悬浮时显示恢复按钮 */}
+              <div className={cn(
+                "absolute inset-0 flex items-center justify-center",
+                "opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+              )}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 gap-1.5 bg-white/10 hover:bg-white/20 text-white border border-white/20 backdrop-blur-sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRestore(entry.id);
+                  }}
+                >
+                  <RotateCcw className="h-3 w-3" />
+                  <span className="text-xs">恢复</span>
+                </Button>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 flex-shrink-0 text-white/40 hover:text-violet-400 hover:bg-violet-500/10 opacity-0 group-hover:opacity-100 transition-opacity"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onRestore(entry.id);
-                }}
-              >
-                <RotateCcw className="h-3.5 w-3.5" />
-              </Button>
             </div>
-          ))}
-        </div>
+            
+            <div className="p-2.5">
+              <div className="flex items-center justify-between text-[10px]">
+                <span className="text-white/50 flex items-center gap-1">
+                  <Zap className="h-3 w-3 text-orange-400" />
+                  {entry.operation}
+                </span>
+                <span className="text-white/30 font-mono">
+                  {entry.width}×{entry.height}
+                </span>
+              </div>
+              <div className="mt-1 text-[10px] text-white/20 font-mono">
+                {new Date(entry.timestamp).toLocaleTimeString()}
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
 }
 
-function formatTime(timestamp: number): string {
-  const date = new Date(timestamp);
-  return date.toLocaleTimeString('zh-CN', { 
-    hour: '2-digit', 
-    minute: '2-digit',
-    second: '2-digit'
-  });
-}
-
-// 对比查看器组件
+// 对比视图组件
 interface CompareViewProps {
   original: string;
   processed: string;
   onClose: () => void;
-  onDownload?: () => void;
+  onDownload: () => void;
 }
 
 export function CompareView({ original, processed, onClose, onDownload }: CompareViewProps) {
   const [sliderPosition, setSliderPosition] = useState(50);
   const [isDragging, setIsDragging] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const handleMouseDown = () => setIsDragging(true);
-  
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!isDragging) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const percentage = (x / rect.width) * 100;
-    setSliderPosition(Math.min(100, Math.max(0, percentage)));
-  };
-
   const handleMouseUp = () => setIsDragging(false);
 
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!isDragging || !containerRef.current) return;
+    
+    const rect = containerRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+    const percentage = (x / rect.width) * 100;
+    setSliderPosition(percentage);
+  }, [isDragging]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!containerRef.current) return;
+    
+    const rect = containerRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min(e.touches[0].clientX - rect.left, rect.width));
+    const percentage = (x / rect.width) * 100;
+    setSliderPosition(percentage);
+  }, []);
+
   return (
-    <div className="fixed inset-0 bg-black/90 backdrop-blur-xl z-50 flex items-center justify-center">
-      <div className="relative w-full max-w-6xl h-[85vh] rounded-2xl overflow-hidden border border-white/10 bg-slate-900/50">
+    <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-xl flex items-center justify-center p-8">
+      <div className="relative max-w-5xl w-full">
         {/* 头部 */}
-        <div className="absolute top-0 left-0 right-0 flex items-center justify-between p-4 bg-gradient-to-b from-black/80 to-transparent z-10">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-gradient-to-r from-violet-400 to-fuchsia-400 animate-pulse" />
-              <span className="text-white text-sm font-medium">对比视图</span>
-            </div>
-            <span className="text-white/50 text-xs">
-              拖动滑块对比原图与处理后效果
-            </span>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <ArrowLeftRight className="h-5 w-5 text-orange-400" />
+            <h2 className="text-xl font-semibold text-white/90">原图 vs 处理后</h2>
           </div>
           <div className="flex items-center gap-2">
-            {onDownload && (
-              <Button 
-                size="sm" 
-                onClick={onDownload}
-                className="bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white border-0"
-              >
-                <Download className="h-4 w-4 mr-1.5" />
-                下载
-              </Button>
-            )}
-            <Button 
-              variant="ghost" 
-              size="icon" 
+            <Button
+              size="sm"
+              onClick={onDownload}
+              className="bg-gradient-to-r from-orange-500 via-yellow-500 to-cyan-500 hover:from-orange-400 hover:via-yellow-400 hover:to-cyan-400 text-black font-medium"
+            >
+              <Download className="h-4 w-4 mr-1.5" />
+              下载
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={onClose}
-              className="text-white/60 hover:text-white hover:bg-white/10"
+              className="text-white/50 hover:text-white hover:bg-white/10"
             >
               <X className="h-5 w-5" />
             </Button>
           </div>
         </div>
 
-        {/* 对比区域 */}
+        {/* 对比滑块 */}
         <div 
-          className="relative w-full h-full cursor-ew-resize"
+          ref={containerRef}
+          className="relative aspect-video rounded-2xl overflow-hidden cursor-col-resize border border-white/20 shadow-2xl"
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
+          onTouchMove={handleTouchMove}
         >
           {/* 处理后的图片 */}
           <img
             src={processed}
-            alt="处理后"
-            className="absolute inset-0 w-full h-full object-contain p-12"
+            alt="Processed"
+            className="absolute inset-0 w-full h-full object-contain"
           />
-          
+
           {/* 原图 */}
-          <div
+          <div 
             className="absolute inset-0 overflow-hidden"
             style={{ width: `${sliderPosition}%` }}
           >
             <img
               src={original}
-              alt="原图"
-              className="absolute inset-0 h-full object-contain p-12"
+              alt="Original"
+              className="absolute inset-0 w-full h-full object-contain"
               style={{ width: `${100 / (sliderPosition / 100)}%`, maxWidth: 'none' }}
             />
           </div>
 
           {/* 滑块 */}
-          <div
-            className="absolute top-0 bottom-0 w-1 bg-white cursor-ew-resize z-20 shadow-lg shadow-white/20"
-            style={{ left: `${sliderPosition}%` }}
+          <div 
+            className="absolute top-0 bottom-0 w-1 bg-white/80 shadow-lg cursor-col-resize"
+            style={{ left: `${sliderPosition}%`, transform: 'translateX(-50%)' }}
             onMouseDown={handleMouseDown}
           >
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 bg-white rounded-full shadow-2xl flex items-center justify-center">
-              <div className="flex items-center gap-0.5 text-slate-600">
-                <ChevronLeft className="h-4 w-4" />
-                <ChevronRight className="h-4 w-4" />
-              </div>
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm border-2 border-white/80 flex items-center justify-center">
+              <ArrowLeftRight className="h-5 w-5 text-white" />
             </div>
           </div>
 
           {/* 标签 */}
-          <div className="absolute bottom-6 left-6 bg-black/80 backdrop-blur-sm text-white text-xs px-3 py-1.5 rounded-full border border-white/20">
+          <div className="absolute top-4 left-4 px-3 py-1 rounded-full bg-gradient-to-r from-orange-500/80 to-yellow-500/80 text-white text-xs font-medium backdrop-blur-sm">
             原图
           </div>
-          <div className="absolute bottom-6 right-6 bg-gradient-to-r from-violet-600/80 to-fuchsia-600/80 backdrop-blur-sm text-white text-xs px-3 py-1.5 rounded-full border border-white/20">
+          <div className="absolute top-4 right-4 px-3 py-1 rounded-full bg-gradient-to-r from-cyan-500/80 to-purple-500/80 text-white text-xs font-medium backdrop-blur-sm">
             处理后
           </div>
         </div>
+
+        {/* 提示 */}
+        <p className="text-center text-white/30 text-xs mt-4">
+          拖动滑块对比原图与处理后的效果
+        </p>
       </div>
     </div>
   );

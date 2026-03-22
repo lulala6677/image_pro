@@ -63,9 +63,8 @@ async function getHistogramFromImage(dataUrl: string): Promise<HistogramData> {
   });
 }
 
-function HistogramChart({ data, color, label, gradientFrom, gradientTo }: { 
+function HistogramChart({ data, label, gradientFrom, gradientTo }: { 
   data: number[]; 
-  color: string; 
   label: string;
   gradientFrom: string;
   gradientTo: string;
@@ -82,8 +81,8 @@ function HistogramChart({ data, color, label, gradientFrom, gradientTo }: {
   return (
     <div className="space-y-1.5">
       <div className="flex justify-between text-xs px-1">
-        <span className="font-medium text-white/70">{label}</span>
-        <span className="text-white/40 font-mono text-[10px]">0-255</span>
+        <span className="font-medium text-white/60">{label}</span>
+        <span className="text-cyan-400/60 font-mono text-[10px]">0-255</span>
       </div>
       <div className="h-10 bg-white/5 rounded-lg overflow-hidden relative border border-white/5">
         <div className="absolute inset-0 flex">
@@ -126,8 +125,8 @@ function HistogramDisplay({ dataUrl }: { dataUrl: string }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <div className="flex items-center gap-2 text-white/50">
-          <div className="h-4 w-4 rounded-full border-2 border-white/20 border-t-violet-400 animate-spin" />
+        <div className="flex items-center gap-2 text-white/40">
+          <div className="h-4 w-4 rounded-full border-2 border-white/20 border-t-cyan-400 animate-spin" />
           <span className="text-xs">计算直方图...</span>
         </div>
       </div>
@@ -137,7 +136,7 @@ function HistogramDisplay({ dataUrl }: { dataUrl: string }) {
   if (error) {
     return (
       <div className="text-center py-4">
-        <span className="text-xs text-red-400/80">错误: {error}</span>
+        <span className="text-xs text-red-400/60">错误: {error}</span>
       </div>
     );
   }
@@ -145,7 +144,7 @@ function HistogramDisplay({ dataUrl }: { dataUrl: string }) {
   if (!data) {
     return (
       <div className="flex items-center justify-center py-8">
-        <span className="text-xs text-white/40">等待图片...</span>
+        <span className="text-xs text-white/30">等待图片...</span>
       </div>
     );
   }
@@ -155,30 +154,26 @@ function HistogramDisplay({ dataUrl }: { dataUrl: string }) {
       <HistogramChart 
         data={data.gray} 
         label="灰度" 
-        gradientFrom="rgba(107, 114, 128, 0.6)"
-        gradientTo="rgba(107, 114, 128, 0.2)"
-        color="#6b7280" 
+        gradientFrom="rgba(255, 255, 255, 0.4)"
+        gradientTo="rgba(255, 255, 255, 0.1)"
       />
       <HistogramChart 
         data={data.r} 
         label="红色 (R)" 
-        gradientFrom="rgba(239, 68, 68, 0.8)"
-        gradientTo="rgba(239, 68, 68, 0.2)"
-        color="#ef4444" 
+        gradientFrom="rgba(251, 146, 60, 0.8)"
+        gradientTo="rgba(251, 146, 60, 0.2)"
       />
       <HistogramChart 
         data={data.g} 
         label="绿色 (G)" 
         gradientFrom="rgba(34, 197, 94, 0.8)"
         gradientTo="rgba(34, 197, 94, 0.2)"
-        color="#22c55e" 
       />
       <HistogramChart 
         data={data.b} 
         label="蓝色 (B)" 
-        gradientFrom="rgba(59, 130, 246, 0.8)"
-        gradientTo="rgba(59, 130, 246, 0.2)"
-        color="#3b82f6" 
+        gradientFrom="rgba(34, 211, 238, 0.8)"
+        gradientTo="rgba(34, 211, 238, 0.2)"
       />
     </div>
   );
@@ -187,7 +182,7 @@ function HistogramDisplay({ dataUrl }: { dataUrl: string }) {
 export function Histogram({ dataUrl }: HistogramProps) {
   if (!dataUrl) {
     return (
-      <div className="h-full flex flex-col items-center justify-center text-white/40 p-6">
+      <div className="h-full flex flex-col items-center justify-center text-white/30 p-6">
         <BarChart3 className="h-12 w-12 mb-3 opacity-30" />
         <p className="text-sm font-medium">等待图片</p>
         <p className="text-xs mt-1">上传图片后显示直方图</p>
@@ -198,8 +193,8 @@ export function Histogram({ dataUrl }: HistogramProps) {
   return (
     <div className="h-full overflow-auto p-4">
       <div className="flex items-center gap-2 mb-4">
-        <BarChart3 className="h-4 w-4 text-violet-400" />
-        <span className="text-sm font-medium text-white/80">直方图</span>
+        <BarChart3 className="h-4 w-4 text-orange-400" />
+        <span className="text-sm font-medium text-white/70">直方图</span>
       </div>
       <HistogramDisplay dataUrl={dataUrl} />
     </div>

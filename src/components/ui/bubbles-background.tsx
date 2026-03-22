@@ -10,6 +10,8 @@ interface Bubble {
   speedY: number;
   opacity: number;
   hue: number;
+  saturation: number;
+  lightness: number;
 }
 
 export function BubblesBackground() {
@@ -30,20 +32,25 @@ export function BubblesBackground() {
       canvas.height = window.innerHeight;
     };
 
+    // 虹彩色彩范围：橙色(30) -> 黄色(60) -> 青色(180) -> 蓝色(220) -> 紫色(280)
+    const rainbowHues = [30, 45, 60, 180, 200, 220, 260, 280];
+
     const createBubble = (): Bubble => ({
       x: Math.random() * canvas.width,
       y: Math.random() * canvas.height,
-      size: Math.random() * 60 + 20,
-      speedX: (Math.random() - 0.5) * 0.5,
-      speedY: (Math.random() - 0.5) * 0.5,
-      opacity: Math.random() * 0.15 + 0.05,
-      hue: Math.random() * 60 + 180, // 蓝紫色调
+      size: Math.random() * 100 + 40,
+      speedX: (Math.random() - 0.5) * 0.3,
+      speedY: (Math.random() - 0.5) * 0.3,
+      opacity: Math.random() * 0.12 + 0.03,
+      hue: rainbowHues[Math.floor(Math.random() * rainbowHues.length)],
+      saturation: 80 + Math.random() * 20,
+      lightness: 50 + Math.random() * 20,
     });
 
     const initBubbles = () => {
       bubbles = [];
-      const count = Math.floor((canvas.width * canvas.height) / 50000);
-      for (let i = 0; i < Math.min(count, 20); i++) {
+      const count = Math.floor((canvas.width * canvas.height) / 60000);
+      for (let i = 0; i < Math.min(count, 15); i++) {
         bubbles.push(createBubble());
       }
     };
@@ -54,25 +61,29 @@ export function BubblesBackground() {
         bubble.x, bubble.y, bubble.size
       );
       
-      gradient.addColorStop(0, `hsla(${bubble.hue}, 80%, 60%, ${bubble.opacity})`);
-      gradient.addColorStop(0.5, `hsla(${bubble.hue}, 70%, 50%, ${bubble.opacity * 0.5})`);
-      gradient.addColorStop(1, `hsla(${bubble.hue}, 60%, 40%, 0)`);
+      const color1 = `hsla(${bubble.hue}, ${bubble.saturation}%, ${bubble.lightness}%, ${bubble.opacity})`;
+      const color2 = `hsla(${bubble.hue + 30}, ${bubble.saturation - 10}%, ${bubble.lightness - 10}%, ${bubble.opacity * 0.5})`;
+      const color3 = `hsla(${bubble.hue}, ${bubble.saturation - 20}%, ${bubble.lightness - 20}%, 0)`;
+
+      gradient.addColorStop(0, color1);
+      gradient.addColorStop(0.5, color2);
+      gradient.addColorStop(1, color3);
 
       ctx.beginPath();
       ctx.arc(bubble.x, bubble.y, bubble.size, 0, Math.PI * 2);
       ctx.fillStyle = gradient;
       ctx.fill();
 
-      // 高光
+      // 高光效果
       const highlightGradient = ctx.createRadialGradient(
         bubble.x - bubble.size * 0.3,
         bubble.y - bubble.size * 0.3,
         0,
         bubble.x - bubble.size * 0.3,
         bubble.y - bubble.size * 0.3,
-        bubble.size * 0.5
+        bubble.size * 0.4
       );
-      highlightGradient.addColorStop(0, `rgba(255, 255, 255, ${bubble.opacity * 0.8})`);
+      highlightGradient.addColorStop(0, `rgba(255, 255, 255, ${bubble.opacity * 1.2})`);
       highlightGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
 
       ctx.beginPath();
@@ -84,6 +95,10 @@ export function BubblesBackground() {
     const updateBubble = (bubble: Bubble) => {
       bubble.x += bubble.speedX;
       bubble.y += bubble.speedY;
+
+      // 缓慢变化色相，创造流动的彩虹效果
+      bubble.hue += 0.05;
+      if (bubble.hue > 280) bubble.hue = 30;
 
       // 边界检测
       if (bubble.x < -bubble.size) bubble.x = canvas.width + bubble.size;
@@ -122,7 +137,6 @@ export function BubblesBackground() {
     <canvas
       ref={canvasRef}
       className="fixed inset-0 pointer-events-none z-0"
-      style={{ opacity: 0.8 }}
     />
   );
 }

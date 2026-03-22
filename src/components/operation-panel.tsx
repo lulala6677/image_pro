@@ -80,8 +80,8 @@ export function OperationPanel({ onApply, isProcessing }: OperationPanelProps) {
         return (
           <div key={param.name} className="space-y-2">
             <div className="flex justify-between text-xs">
-              <Label className="text-white/70">{param.label}</Label>
-              <span className="text-white/50 font-mono">
+              <Label className="text-white/60">{param.label}</Label>
+              <span className="text-cyan-400/80 font-mono">
                 {typeof params[param.name] === 'number' 
                   ? (param.step && param.step < 1 
                       ? (params[param.name] as number).toFixed(2) 
@@ -103,12 +103,12 @@ export function OperationPanel({ onApply, isProcessing }: OperationPanelProps) {
       case 'select':
         return (
           <div key={param.name} className="space-y-2">
-            <Label className="text-xs text-white/70">{param.label}</Label>
+            <Label className="text-xs text-white/60">{param.label}</Label>
             <Select
               value={params[param.name] as string ?? (param.default as string)}
               onValueChange={(value) => handleParamChange(param.name, value)}
             >
-              <SelectTrigger className="h-9 bg-white/5 border-white/10 text-white/80">
+              <SelectTrigger className="h-9 bg-white/5 border-white/10 text-white/70">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-slate-900 border-white/10">
@@ -116,7 +116,7 @@ export function OperationPanel({ onApply, isProcessing }: OperationPanelProps) {
                   <SelectItem 
                     key={String(opt.value)} 
                     value={String(opt.value)}
-                    className="text-white/80 focus:bg-white/10 focus:text-white"
+                    className="text-white/70 focus:bg-white/10 focus:text-white"
                   >
                     {opt.label}
                   </SelectItem>
@@ -129,7 +129,7 @@ export function OperationPanel({ onApply, isProcessing }: OperationPanelProps) {
       case 'color':
         return (
           <div key={param.name} className="space-y-2">
-            <Label className="text-xs text-white/70">{param.label}</Label>
+            <Label className="text-xs text-white/60">{param.label}</Label>
             <div className="flex gap-2">
               <Input
                 type="color"
@@ -140,7 +140,7 @@ export function OperationPanel({ onApply, isProcessing }: OperationPanelProps) {
               <Input
                 value={params[param.name] as string ?? (param.default as string)}
                 onChange={(e) => handleParamChange(param.name, e.target.value)}
-                className="flex-1 h-9 bg-white/5 border-white/10 text-white/80"
+                className="flex-1 h-9 bg-white/5 border-white/10 text-white/70"
               />
             </div>
           </div>
@@ -149,7 +149,7 @@ export function OperationPanel({ onApply, isProcessing }: OperationPanelProps) {
       case 'boolean':
         return (
           <div key={param.name} className="flex items-center justify-between py-1">
-            <Label className="text-xs text-white/70">{param.label}</Label>
+            <Label className="text-xs text-white/60">{param.label}</Label>
             <Switch
               checked={params[param.name] as boolean ?? (param.default as boolean)}
               onCheckedChange={(checked) => handleParamChange(param.name, checked)}
@@ -160,7 +160,7 @@ export function OperationPanel({ onApply, isProcessing }: OperationPanelProps) {
       case 'number':
         return (
           <div key={param.name} className="space-y-2">
-            <Label className="text-xs text-white/70">{param.label}</Label>
+            <Label className="text-xs text-white/60">{param.label}</Label>
             <Input
               type="number"
               value={params[param.name] as number ?? (param.default as number)}
@@ -168,7 +168,7 @@ export function OperationPanel({ onApply, isProcessing }: OperationPanelProps) {
               max={param.max}
               step={param.step}
               onChange={(e) => handleParamChange(param.name, parseFloat(e.target.value))}
-              className="h-9 bg-white/5 border-white/10 text-white/80"
+              className="h-9 bg-white/5 border-white/10 text-white/70"
             />
           </div>
         );
@@ -182,8 +182,8 @@ export function OperationPanel({ onApply, isProcessing }: OperationPanelProps) {
     <div className="h-full flex flex-col">
       <div className="px-4 py-4 border-b border-white/10 flex-shrink-0">
         <div className="flex items-center gap-2">
-          <Wand2 className="h-4 w-4 text-violet-400" />
-          <h2 className="text-sm font-semibold text-white">图像处理</h2>
+          <Wand2 className="h-4 w-4 text-orange-400" />
+          <h2 className="text-sm font-semibold text-white/90">图像处理</h2>
         </div>
       </div>
       <div className="flex-1 overflow-hidden flex flex-col gap-3 p-4">
@@ -195,10 +195,10 @@ export function OperationPanel({ onApply, isProcessing }: OperationPanelProps) {
               open={expandedCategories.includes(category)}
               onOpenChange={() => toggleCategory(category)}
             >
-              <CollapsibleTrigger className="flex items-center gap-2 w-full py-2 text-sm font-medium text-white/80 hover:text-white transition-colors rounded-lg hover:bg-white/5 px-2 -ml-2">
+              <CollapsibleTrigger className="flex items-center gap-2 w-full py-2 text-sm font-medium text-white/70 hover:text-white transition-colors rounded-lg hover:bg-white/5 px-2 -ml-2">
                 <ChevronDown 
                   className={cn(
-                    "h-4 w-4 flex-shrink-0 text-violet-400 transition-transform duration-200",
+                    "h-4 w-4 flex-shrink-0 text-cyan-400 transition-transform duration-200",
                     !expandedCategories.includes(category) && "-rotate-90"
                   )} 
                 />
@@ -217,15 +217,15 @@ export function OperationPanel({ onApply, isProcessing }: OperationPanelProps) {
                           "h-auto py-2 px-3 flex items-center gap-2 justify-start text-left",
                           "bg-white/5 hover:bg-white/10 border border-white/10",
                           "transition-all duration-200",
-                          selectedOperation === op.name && "bg-gradient-to-r from-violet-600/80 to-fuchsia-600/80 border-violet-400/50 text-white shadow-lg shadow-violet-500/20"
+                          selectedOperation === op.name && "bg-gradient-to-r from-orange-500/40 to-cyan-500/40 border-orange-400/50 text-white shadow-lg shadow-orange-500/10"
                         )}
                         onClick={() => handleOperationSelect(op)}
                       >
                         <Icon className={cn(
                           "h-3.5 w-3.5 flex-shrink-0",
-                          selectedOperation === op.name ? "text-white" : "text-violet-400"
+                          selectedOperation === op.name ? "text-white" : "text-orange-400"
                         )} />
-                        <span className="text-xs truncate text-white/80">{op.name}</span>
+                        <span className="text-xs truncate text-white/70">{op.name}</span>
                       </Button>
                     );
                   })}
@@ -239,8 +239,8 @@ export function OperationPanel({ onApply, isProcessing }: OperationPanelProps) {
         {selectedOperation && (
           <div className="border-t border-white/10 pt-4 space-y-4 flex-shrink-0 bg-white/5 -mx-4 px-4 pb-4 backdrop-blur-sm">
             <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-gradient-to-r from-violet-400 to-fuchsia-400 animate-pulse" />
-              <span className="text-xs text-white/60">
+              <div className="h-2 w-2 rounded-full bg-gradient-to-r from-orange-400 to-cyan-400 animate-pulse" />
+              <span className="text-xs text-white/50">
                 {getAllOperations().find(o => o.name === selectedOperation)?.description}
               </span>
             </div>
@@ -255,13 +255,13 @@ export function OperationPanel({ onApply, isProcessing }: OperationPanelProps) {
             })()}
             <Button 
               size="sm"
-              className="w-full bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white border-0 shadow-lg shadow-violet-500/25 transition-all duration-200" 
+              className="w-full bg-gradient-to-r from-orange-500 via-yellow-500 to-cyan-500 hover:from-orange-400 hover:via-yellow-400 hover:to-cyan-400 text-black font-medium border-0 shadow-lg shadow-orange-500/20 transition-all duration-200" 
               onClick={handleApply}
               disabled={isProcessing}
             >
               {isProcessing ? (
                 <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                  <div className="h-3 w-3 rounded-full border-2 border-black/30 border-t-black animate-spin" />
                   <span>处理中...</span>
                 </div>
               ) : (
