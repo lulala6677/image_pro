@@ -9,7 +9,7 @@ import { OperationPanel } from '@/components/operation-panel';
 import { Histogram } from '@/components/histogram';
 import { HistoryPanel, HistoryEntry, CompareView } from '@/components/history-panel';
 import { BubblesBackground } from '@/components/ui/bubbles-background';
-import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
+import { PanelLayout } from '@/components/ui/panel-layout';
 import { 
   resize, rotate, flip, translate,
   toGrayscale, binary, logarithmicTransform, inverseTransform, gammaTransform,
@@ -347,18 +347,19 @@ export default function ImageProcessorPage() {
 
       {/* 主内容区 - 可调整大小 */}
       <div className="flex-1 min-h-0 relative z-10">
-        <ResizablePanelGroup orientation="horizontal" className="h-full">
-          {/* 左侧：操作面板 */}
-          <ResizablePanel defaultSize={18} minSize={15} maxSize={30}>
+        <PanelLayout
+          defaultLeftWidth={260}
+          defaultRightWidth={260}
+          minLeftWidth={200}
+          maxLeftWidth={400}
+          minRightWidth={200}
+          maxRightWidth={400}
+          leftPanel={
             <div className="h-full w-full overflow-hidden bg-black/40 backdrop-blur-xl border-r border-white/10">
               <OperationPanel onApply={applyOperation} isProcessing={isProcessing} />
             </div>
-          </ResizablePanel>
-
-          <ResizableHandle withHandle />
-
-          {/* 中间：图像预览 */}
-          <ResizablePanel defaultSize={52} minSize={30}>
+          }
+          centerPanel={
             <div className="h-full w-full flex flex-col overflow-hidden bg-black/20">
               {/* 缩放控制 */}
               <div className="flex items-center justify-center gap-3 py-3 border-b border-white/10 bg-black/40 backdrop-blur-xl flex-shrink-0">
@@ -422,12 +423,8 @@ export default function ImageProcessorPage() {
                 )}
               </div>
             </div>
-          </ResizablePanel>
-
-          <ResizableHandle withHandle />
-
-          {/* 右侧：直方图和历史 */}
-          <ResizablePanel defaultSize={30} minSize={20} maxSize={40}>
+          }
+          rightPanel={
             <div className="h-full w-full overflow-hidden bg-black/40 backdrop-blur-xl border-l border-white/10">
               <Tabs defaultValue="histogram" className="h-full w-full flex flex-col">
                 <TabsList className="mx-4 mt-4 mb-2 flex-shrink-0 bg-white/5 border border-white/10 p-1">
@@ -457,8 +454,8 @@ export default function ImageProcessorPage() {
                 </TabsContent>
               </Tabs>
             </div>
-          </ResizablePanel>
-        </ResizablePanelGroup>
+          }
+        />
       </div>
 
       {/* 对比视图 */}
