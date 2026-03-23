@@ -452,13 +452,22 @@ export default function ImageProcessorPage() {
                     />
                     {isProcessing && (
                       <div className="absolute inset-0 rounded-2xl overflow-hidden">
-                        {/* 毛玻璃模糊效果 - 无文字 */}
-                        <div className="absolute inset-0 backdrop-blur-2xl bg-white/5" />
-                        {/* 额外的磨砂层 */}
+                        {/* 压花玻璃效果 - 强模糊 + 水纹纹理 */}
+                        <div className="absolute inset-0 backdrop-blur-3xl" />
+                        {/* 半透明白色覆盖层 */}
+                        <div className="absolute inset-0 bg-white/20" />
+                        {/* 水纹玻璃纹理层 */}
                         <div 
-                          className="absolute inset-0 opacity-30"
+                          className="absolute inset-0 opacity-40 mix-blend-overlay"
                           style={{
-                            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
+                            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.02' numOctaves='3' result='noise'/%3E%3CfeDiffuseLighting in='noise' lighting-color='white' surfaceScale='2'%3E%3CfeDistantLight azimuth='45' elevation='60'/%3E%3C/feDiffuseLighting%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
+                          }}
+                        />
+                        {/* 细密纹理叠加 */}
+                        <div 
+                          className="absolute inset-0 opacity-25"
+                          style={{
+                            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise2'%3E%3CfeTurbulence type='turbulence' baseFrequency='0.8' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise2)'/%3E%3C/svg%3E")`,
                           }}
                         />
                       </div>
