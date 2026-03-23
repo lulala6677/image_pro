@@ -1,13 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { 
   Maximize2, RotateCw, FlipHorizontal, Move, 
   Circle, CircleDot, TrendingUp, SwitchCamera, Zap, BarChart3, Sliders, Expand,
   Sparkles, Activity,
   Cloud, Layers, Grid3x3, Wind, Focus, CircleDot as Bilateral,
   Scan, Palette, RefreshCw, Split, Sprout,
-  ChevronDown, ChevronRight, Wand2
+  ChevronDown, ChevronRight, Wand2, GripHorizontal
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -46,6 +46,10 @@ export function OperationPanel({ onApply, isProcessing }: OperationPanelProps) {
   const [selectedOperation, setSelectedOperation] = useState<string | null>(null);
   const [params, setParams] = useState<Record<string, unknown>>({});
   const [expandedCategories, setExpandedCategories] = useState<string[]>(['geometric']);
+  const [paramPanelHeight, setParamPanelHeight] = useState(160); // 默认高度
+  const [isResizing, setIsResizing] = useState(false);
+  const resizeRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   const toggleCategory = (category: string) => {
     setExpandedCategories(prev => {
@@ -62,6 +66,40 @@ export function OperationPanel({ onApply, isProcessing }: OperationPanelProps) {
       return newExpanded;
     });
   };
+
+  // 拖拽调整高度
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  }, []);
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isResizing || !panelRef.current) return;
+    
+    const rect = panelRef.current.getBoundingClientRect();
+    const newHeight = rect.bottom - e.clientY;
+    setParamPanelHeight(Math.max(120, Math.min(400, newHeight)));
+  }, [isResizing]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsResizing(false);
+  }, []);
+
+  useEffect(() => {
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'row-resize';
+      document.body.style.userSelect = 'none';
+    }
+    
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [isResizing, handleMouseMove, handleMouseUp]);
 
   const handleOperationSelect = (operation: OperationConfig) => {
     setSelectedOperation(operation.name);
@@ -245,37 +283,58 @@ export function OperationPanel({ onApply, isProcessing }: OperationPanelProps) {
 
         {/* 参数面板 */}
         {selectedOperation && (
-          <div className="border-t border-white/10 pt-4 space-y-4 flex-shrink-0 bg-white/5 -mx-4 px-4 pb-4 backdrop-blur-sm animate-in slide-in-from-bottom-4 duration-300">
-            <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-gradient-to-r from-orange-400 to-cyan-400 animate-pulse" />
-              <span className="text-xs text-white/50">
-                {getAllOperations().find(o => o.name === selectedOperation)?.description}
-              </span>
-            </div>
-            {(() => {
-              const operation = getAllOperations().find(o => o.name === selectedOperation);
-              if (!operation || operation.params.length === 0) return null;
-              return (
-                <div className="space-y-4 max-h-40 overflow-y-auto pr-1">
-                  {operation.params.map(renderParamInput)}
-                </div>
-              );
-            })()}
-            <Button 
-              size="sm"
-              className="w-full bg-gradient-to-r from-orange-500 via-yellow-500 to-cyan-500 hover:from-orange-400 hover:via-yellow-400 hover:to-cyan-400 text-black font-medium border-0 shadow-lg shadow-orange-500/20 transition-all duration-200" 
-              onClick={handleApply}
-              disabled={isProcessing}
-            >
-              {isProcessing ? (
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full border-2 border-black/30 border-t-black animate-spin" />
-                  <span>处理中...</span>
-                </div>
-              ) : (
-                '应用效果'
+          <div 
+            ref={panelRef}
+            style={{ height: paramPanelHeight }}
+            className="border-t border-white/10 flex-shrink-0 bg-white/5 -mx-4 backdrop-blur-sm animate-in slide-in-from-bottom-4 duration-500 flex flex-col"
+          >
+            {/* 拖拽手柄 */}
+            <div
+              ref={resizeRef}
+              onMouseDown={handleMouseDown}
+              className={cn(
+                "h-1.5 w-full cursor-row-resize flex items-center justify-center",
+                "hover:bg-gradient-to-r hover:from-orange-500/30 hover:via-yellow-500/20 hover:to-cyan-500/30",
+                "transition-colors duration-200",
+                isResizing && "bg-gradient-to-r from-orange-500/50 via-yellow-500/30 to-cyan-500/50"
               )}
-            </Button>
+            >
+              <GripHorizontal className="h-3 w-6 text-white/30" />
+            </div>
+            
+            {/* 内容区域 */}
+            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-gradient-to-r from-orange-400 to-cyan-400 animate-pulse" />
+                <span className="text-xs text-white/50">
+                  {getAllOperations().find(o => o.name === selectedOperation)?.description}
+                </span>
+              </div>
+              {(() => {
+                const operation = getAllOperations().find(o => o.name === selectedOperation);
+                if (!operation || operation.params.length === 0) return null;
+                return (
+                  <div className="space-y-4 pr-1">
+                    {operation.params.map(renderParamInput)}
+                  </div>
+                );
+              })()}
+              <Button 
+                size="sm"
+                className="w-full bg-gradient-to-r from-orange-500 via-yellow-500 to-cyan-500 hover:from-orange-400 hover:via-yellow-400 hover:to-cyan-400 text-black font-medium border-0 shadow-lg shadow-orange-500/20 transition-all duration-200" 
+                onClick={handleApply}
+                disabled={isProcessing}
+              >
+                {isProcessing ? (
+                  <div className="flex items-center gap-2">
+                    <div className="h-3 w-3 rounded-full border-2 border-black/30 border-t-black animate-spin" />
+                    <span>处理中...</span>
+                  </div>
+                ) : (
+                  '应用效果'
+                )}
+              </Button>
+            </div>
           </div>
         )}
       </div>
