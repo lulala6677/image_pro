@@ -67,6 +67,45 @@ export function OperationPanel({ onApply, isProcessing }: OperationPanelProps) {
     });
   };
 
+  // 根据参数计算面板高度
+  const calculatePanelHeight = useCallback((operation: OperationConfig): number => {
+    if (operation.params.length === 0) {
+      return 100; // 无参数时最小高度
+    }
+
+    // 基础高度：拖拽手柄 + 描述行 + 按钮 + 内边距
+    const baseHeight = 10 + 30 + 40 + 30; // 约 110px
+    
+    // 根据参数类型计算每个参数需要的高度
+    let paramsHeight = 0;
+    operation.params.forEach(param => {
+      switch (param.type) {
+        case 'range':
+          paramsHeight += 55; // 滑块需要更多空间
+          break;
+        case 'select':
+          paramsHeight += 50;
+          break;
+        case 'color':
+          paramsHeight += 50;
+          break;
+        case 'boolean':
+          paramsHeight += 30;
+          break;
+        case 'number':
+          paramsHeight += 50;
+          break;
+        default:
+          paramsHeight += 40;
+      }
+    });
+
+    const totalHeight = baseHeight + paramsHeight;
+    
+    // 限制在最小和最大范围内
+    return Math.max(120, Math.min(400, totalHeight));
+  }, []);
+
   // 拖拽调整高度
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -108,6 +147,10 @@ export function OperationPanel({ onApply, isProcessing }: OperationPanelProps) {
       defaultParams[p.name] = p.default;
     });
     setParams(defaultParams);
+    
+    // 自动调整面板高度
+    const autoHeight = calculatePanelHeight(operation);
+    setParamPanelHeight(autoHeight);
   };
 
   const handleParamChange = (name: string, value: unknown) => {
@@ -286,7 +329,7 @@ export function OperationPanel({ onApply, isProcessing }: OperationPanelProps) {
           <div 
             ref={panelRef}
             style={{ height: paramPanelHeight }}
-            className="border-t border-white/10 flex-shrink-0 bg-white/5 -mx-4 backdrop-blur-sm animate-in slide-in-from-bottom-4 duration-500 flex flex-col"
+            className="border-t border-white/10 flex-shrink-0 bg-white/5 -mx-4 backdrop-blur-sm animate-in slide-in-from-bottom-4 duration-500 flex flex-col transition-all duration-300 ease-out"
           >
             {/* 拖拽手柄 */}
             <div
