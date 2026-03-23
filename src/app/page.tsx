@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { Download, Undo2, GitCompareArrows, ZoomIn, ZoomOut, Maximize, Sparkles } from 'lucide-react';
+import { Download, Undo2, GitCompareArrows, ZoomIn, ZoomOut, Maximize, Sparkles, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ImageUploader, ImageFile } from '@/components/image-uploader';
@@ -267,6 +267,24 @@ export default function ImageProcessorPage() {
     setHistoryIndex(-1);
   }, []);
 
+  // 撤销上一步操作
+  const handleUndo = useCallback(() => {
+    if (historyIndex > 0) {
+      const prevEntry = history[historyIndex - 1];
+      setProcessedImage({
+        id: prevEntry.id,
+        dataUrl: prevEntry.dataUrl,
+        width: prevEntry.width,
+        height: prevEntry.height
+      });
+      setHistoryIndex(historyIndex - 1);
+    } else if (historyIndex === 0) {
+      // 撤销到原始图片
+      setProcessedImage(null);
+      setHistoryIndex(-1);
+    }
+  }, [history, historyIndex]);
+
   // 重置图像
   const handleReset = useCallback(() => {
     setProcessedImage(null);
@@ -313,6 +331,18 @@ export default function ImageProcessorPage() {
         </div>
         
         <div className="flex items-center gap-2">
+          {/* 撤销按钮 - 有处理历史时显示 */}
+          {history.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleUndo}
+              className="text-white/60 hover:text-white hover:bg-white/10 border border-white/10"
+            >
+              <RotateCcw className="h-4 w-4 mr-1.5" />
+              撤销
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"
