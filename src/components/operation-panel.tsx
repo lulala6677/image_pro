@@ -48,11 +48,19 @@ export function OperationPanel({ onApply, isProcessing }: OperationPanelProps) {
   const [expandedCategories, setExpandedCategories] = useState<string[]>(['geometric']);
 
   const toggleCategory = (category: string) => {
-    setExpandedCategories(prev => 
-      prev.includes(category) 
+    setExpandedCategories(prev => {
+      const newExpanded = prev.includes(category) 
         ? prev.filter(c => c !== category)
-        : [...prev, category]
-    );
+        : [...prev, category];
+      
+      // 如果所有分类都被折叠，清除选中的操作
+      if (newExpanded.length === 0) {
+        setSelectedOperation(null);
+        setParams({});
+      }
+      
+      return newExpanded;
+    });
   };
 
   const handleOperationSelect = (operation: OperationConfig) => {
@@ -237,7 +245,7 @@ export function OperationPanel({ onApply, isProcessing }: OperationPanelProps) {
 
         {/* 参数面板 */}
         {selectedOperation && (
-          <div className="border-t border-white/10 pt-4 space-y-4 flex-shrink-0 bg-white/5 -mx-4 px-4 pb-4 backdrop-blur-sm">
+          <div className="border-t border-white/10 pt-4 space-y-4 flex-shrink-0 bg-white/5 -mx-4 px-4 pb-4 backdrop-blur-sm animate-in slide-in-from-bottom-4 duration-300">
             <div className="flex items-center gap-2">
               <div className="h-2 w-2 rounded-full bg-gradient-to-r from-orange-400 to-cyan-400 animate-pulse" />
               <span className="text-xs text-white/50">
