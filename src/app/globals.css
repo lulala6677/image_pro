@@ -242,6 +242,30 @@ body {
   }
 }
 
+/* 从左向右去除模糊的揭示动画 - 遮罩层 */
+@keyframes reveal-clear {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+}
+
+/* 虹彩边缘光效 - 从左向右扫过 */
+@keyframes reveal-edge {
+  0% {
+    transform: translateX(-100%);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
 .animate-rainbow-scan {
   animation: rainbow-scan 1.5s ease-in-out infinite;
 }

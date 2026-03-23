@@ -448,40 +448,27 @@ export default function ImageProcessorPage() {
                     />
                     {isProcessing && (
                       <div className="absolute inset-0 rounded-2xl overflow-hidden">
-                        {/* 虹彩模糊效果 */}
-                        <div className="absolute inset-0 backdrop-blur-md bg-black/20" />
-                        
-                        {/* 虹彩渐变模糊层 */}
-                        <div 
-                          className="absolute inset-0 animate-rainbow-blur"
-                          style={{
-                            background: 'linear-gradient(135deg, rgba(251,146,60,0.3) 0%, rgba(250,204,21,0.3) 25%, rgba(34,211,238,0.3) 50%, rgba(168,85,247,0.3) 75%, rgba(251,146,60,0.3) 100%)',
-                            backgroundSize: '400% 400%',
-                          }}
-                        />
-                        
-                        {/* 发光脉冲效果 */}
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="relative">
-                            <div className="absolute inset-0 bg-gradient-to-r from-orange-500 via-yellow-400 to-cyan-400 blur-2xl opacity-70 animate-pulse scale-150" />
-                            <div className="relative px-8 py-4 bg-black/50 backdrop-blur-sm rounded-2xl border border-white/20">
-                              <span className="text-lg font-bold bg-gradient-to-r from-orange-400 via-yellow-300 to-cyan-400 bg-clip-text text-transparent">
-                                处理中
-                              </span>
-                            </div>
-                          </div>
-                        </div>
+                        {/* 毛玻璃模糊效果 - 无文字 */}
+                        <div className="absolute inset-0 backdrop-blur-xl bg-black/10" />
                       </div>
                     )}
                     
-                    {/* 处理完成揭示动画 */}
+                    {/* 处理完成揭示动画 - 从左向右去除模糊 */}
                     {showReveal && !isProcessing && (
                       <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
                         <div 
-                          className="absolute inset-0 animate-reveal"
+                          className="absolute inset-0"
                           style={{
-                            background: 'linear-gradient(90deg, transparent 0%, transparent 50%, rgba(251,146,60,0.5) 70%, rgba(250,204,21,0.4) 85%, rgba(34,211,238,0.3) 100%)',
-                            backgroundSize: '200% 100%',
+                            background: 'linear-gradient(90deg, transparent 0%, transparent 30%, rgba(0,0,0,0.8) 50%, rgba(0,0,0,0.6) 70%, rgba(0,0,0,0.3) 90%, rgba(0,0,0,0.1) 100%)',
+                            animation: 'reveal-clear 1.2s ease-out forwards',
+                          }}
+                        />
+                        {/* 虹彩边缘光效 */}
+                        <div 
+                          className="absolute inset-0"
+                          style={{
+                            background: 'linear-gradient(90deg, transparent 0%, transparent 28%, rgba(251,146,60,0.4) 30%, rgba(250,204,21,0.3) 35%, rgba(34,211,238,0.2) 40%, transparent 42%)',
+                            animation: 'reveal-edge 1.2s ease-out forwards',
                           }}
                         />
                       </div>
