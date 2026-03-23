@@ -22,6 +22,9 @@ import {
   ProcessImageData
 } from '@/lib/image-processing';
 
+// 生成唯一ID
+const generateId = () => `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
 // 存储处理后的图像
 interface ProcessedImage {
   id: string;
@@ -216,9 +219,10 @@ export default function ImageProcessorPage() {
           throw new Error(`Unknown operation: ${operation}`);
       }
 
-      // 更新处理后的图像
+      // 更新处理后的图像 - 生成新的唯一ID避免冲突
+      const newId = generateId();
       const newProcessedImage: ProcessedImage = {
-        id: result.id,
+        id: newId,
         dataUrl: result.dataUrl,
         width: result.width,
         height: result.height
@@ -234,7 +238,7 @@ export default function ImageProcessorPage() {
 
       // 添加到历史记录
       const historyEntry: HistoryEntry = {
-        id: result.id,
+        id: newId,
         operation: operation,
         params: params,
         dataUrl: result.dataUrl,
