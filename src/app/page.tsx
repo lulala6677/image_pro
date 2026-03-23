@@ -437,10 +437,36 @@ export default function ImageProcessorPage() {
                       className="relative max-w-full max-h-[calc(100vh-220px)] object-contain rounded-2xl shadow-2xl shadow-black/80"
                     />
                     {isProcessing && (
-                      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center rounded-2xl">
-                        <div className="flex items-center gap-3 bg-white/10 backdrop-blur-xl px-6 py-3 rounded-full border border-white/20">
-                          <div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-cyan-400 animate-spin" />
-                          <span className="text-sm text-white font-medium">处理中...</span>
+                      <div className="absolute inset-0 rounded-2xl overflow-hidden">
+                        {/* 背景遮罩 */}
+                        <div className="absolute inset-0 bg-black/40" />
+                        
+                        {/* 虹彩扫描动画 - 从左到右 */}
+                        <div 
+                          className="absolute inset-0 animate-rainbow-scan"
+                          style={{
+                            background: 'linear-gradient(90deg, transparent 0%, rgba(251,146,60,0.8) 20%, rgba(250,204,21,0.9) 40%, rgba(34,211,238,0.9) 60%, rgba(168,85,247,0.8) 80%, transparent 100%)',
+                            backgroundSize: '300% 100%',
+                          }}
+                        />
+                        
+                        {/* 发光效果 */}
+                        <div 
+                          className="absolute inset-0 blur-xl animate-rainbow-glow"
+                          style={{
+                            background: 'linear-gradient(90deg, transparent 0%, rgba(251,146,60,0.6) 25%, rgba(250,204,21,0.7) 50%, rgba(34,211,238,0.7) 75%, transparent 100%)',
+                            backgroundSize: '300% 100%',
+                          }}
+                        />
+                        
+                        {/* 处理中文字 */}
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="relative">
+                            <div className="absolute inset-0 bg-gradient-to-r from-orange-500 via-yellow-400 to-cyan-400 blur-xl opacity-60 animate-pulse" />
+                            <span className="relative px-6 py-2 text-lg font-bold bg-gradient-to-r from-orange-400 via-yellow-300 to-cyan-400 bg-clip-text text-transparent animate-pulse">
+                              处理中
+                            </span>
+                          </div>
                         </div>
                       </div>
                     )}

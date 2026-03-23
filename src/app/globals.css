@@ -189,3 +189,35 @@ body {
   scrollbar-width: thin;
   scrollbar-color: rgba(251, 146, 60, 0.6) rgba(255, 255, 255, 0.05);
 }
+
+/* 虹彩扫描动画 - 从左到右 */
+@keyframes rainbow-scan {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+@keyframes rainbow-glow {
+  0% {
+    background-position: 120% 0;
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.6;
+  }
+  100% {
+    background-position: -120% 0;
+    opacity: 0.3;
+  }
+}
+
+.animate-rainbow-scan {
+  animation: rainbow-scan 1.5s ease-in-out infinite;
+}
+
+.animate-rainbow-glow {
+  animation: rainbow-glow 1.5s ease-in-out infinite;
+}
