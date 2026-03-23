@@ -214,10 +214,46 @@ body {
   }
 }
 
+/* 虹彩模糊动画 */
+@keyframes rainbow-blur {
+  0% {
+    background-position: 0% 50%;
+    filter: blur(8px);
+  }
+  50% {
+    background-position: 100% 50%;
+    filter: blur(12px);
+  }
+  100% {
+    background-position: 0% 50%;
+    filter: blur(8px);
+  }
+}
+
+/* 从左到右揭示动画 */
+@keyframes reveal {
+  0% {
+    background-position: 0% 0;
+    opacity: 1;
+  }
+  100% {
+    background-position: 100% 0;
+    opacity: 0;
+  }
+}
+
 .animate-rainbow-scan {
   animation: rainbow-scan 1.5s ease-in-out infinite;
 }
 
 .animate-rainbow-glow {
   animation: rainbow-glow 1.5s ease-in-out infinite;
+}
+
+.animate-rainbow-blur {
+  animation: rainbow-blur 2s ease-in-out infinite;
+}
+
+.animate-reveal {
+  animation: reveal 1s ease-out forwards;
 }

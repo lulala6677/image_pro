@@ -38,6 +38,7 @@ export default function ImageProcessorPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showCompare, setShowCompare] = useState(false);
   const [zoom, setZoom] = useState(100);
+  const [showReveal, setShowReveal] = useState(false); // 揭示动画状态
 
   // 转换图像格式
   const toProcessImageData = (img: ImageFile | ProcessedImage): ProcessImageData => ({
@@ -223,6 +224,12 @@ export default function ImageProcessorPage() {
         height: result.height
       };
 
+      // 显示揭示动画
+      setShowReveal(true);
+      
+      // 短暂延迟后设置新图片，让用户看到揭示动画
+      await new Promise(resolve => setTimeout(resolve, 50));
+      
       setProcessedImage(newProcessedImage);
 
       // 添加到历史记录
@@ -242,8 +249,11 @@ export default function ImageProcessorPage() {
     } catch (error) {
       console.error('Processing error:', error);
       alert('处理失败: ' + (error as Error).message);
+      setShowReveal(false);
     } finally {
       setIsProcessing(false);
+      // 揭示动画持续1秒后消失
+      setTimeout(() => setShowReveal(false), 1000);
     }
   }, [currentImage, processedImage, historyIndex]);
 
@@ -438,36 +448,42 @@ export default function ImageProcessorPage() {
                     />
                     {isProcessing && (
                       <div className="absolute inset-0 rounded-2xl overflow-hidden">
-                        {/* 背景遮罩 */}
-                        <div className="absolute inset-0 bg-black/40" />
+                        {/* 虹彩模糊效果 */}
+                        <div className="absolute inset-0 backdrop-blur-md bg-black/20" />
                         
-                        {/* 虹彩扫描动画 - 从左到右 */}
+                        {/* 虹彩渐变模糊层 */}
                         <div 
-                          className="absolute inset-0 animate-rainbow-scan"
+                          className="absolute inset-0 animate-rainbow-blur"
                           style={{
-                            background: 'linear-gradient(90deg, transparent 0%, rgba(251,146,60,0.8) 20%, rgba(250,204,21,0.9) 40%, rgba(34,211,238,0.9) 60%, rgba(168,85,247,0.8) 80%, transparent 100%)',
-                            backgroundSize: '300% 100%',
+                            background: 'linear-gradient(135deg, rgba(251,146,60,0.3) 0%, rgba(250,204,21,0.3) 25%, rgba(34,211,238,0.3) 50%, rgba(168,85,247,0.3) 75%, rgba(251,146,60,0.3) 100%)',
+                            backgroundSize: '400% 400%',
                           }}
                         />
                         
-                        {/* 发光效果 */}
-                        <div 
-                          className="absolute inset-0 blur-xl animate-rainbow-glow"
-                          style={{
-                            background: 'linear-gradient(90deg, transparent 0%, rgba(251,146,60,0.6) 25%, rgba(250,204,21,0.7) 50%, rgba(34,211,238,0.7) 75%, transparent 100%)',
-                            backgroundSize: '300% 100%',
-                          }}
-                        />
-                        
-                        {/* 处理中文字 */}
+                        {/* 发光脉冲效果 */}
                         <div className="absolute inset-0 flex items-center justify-center">
                           <div className="relative">
-                            <div className="absolute inset-0 bg-gradient-to-r from-orange-500 via-yellow-400 to-cyan-400 blur-xl opacity-60 animate-pulse" />
-                            <span className="relative px-6 py-2 text-lg font-bold bg-gradient-to-r from-orange-400 via-yellow-300 to-cyan-400 bg-clip-text text-transparent animate-pulse">
-                              处理中
-                            </span>
+                            <div className="absolute inset-0 bg-gradient-to-r from-orange-500 via-yellow-400 to-cyan-400 blur-2xl opacity-70 animate-pulse scale-150" />
+                            <div className="relative px-8 py-4 bg-black/50 backdrop-blur-sm rounded-2xl border border-white/20">
+                              <span className="text-lg font-bold bg-gradient-to-r from-orange-400 via-yellow-300 to-cyan-400 bg-clip-text text-transparent">
+                                处理中
+                              </span>
+                            </div>
                           </div>
                         </div>
+                      </div>
+                    )}
+                    
+                    {/* 处理完成揭示动画 */}
+                    {showReveal && !isProcessing && (
+                      <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
+                        <div 
+                          className="absolute inset-0 animate-reveal"
+                          style={{
+                            background: 'linear-gradient(90deg, transparent 0%, transparent 50%, rgba(251,146,60,0.5) 70%, rgba(250,204,21,0.4) 85%, rgba(34,211,238,0.3) 100%)',
+                            backgroundSize: '200% 100%',
+                          }}
+                        />
                       </div>
                     )}
                   </div>
