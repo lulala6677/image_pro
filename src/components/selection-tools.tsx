@@ -21,7 +21,12 @@ interface SelectionToolsProps {
   imageData: string;
   selection: SelectionData | null;
   onSelectionChange: (selection: SelectionData | null) => void;
-  onSelectionOverlayChange: (overlay: string | null) => void;
+  activeTool: SelectionToolType;
+  onActiveToolChange: (tool: SelectionToolType) => void;
+  wandParams?: WandToolParams;
+  onWandParamsChange?: (params: WandToolParams) => void;
+  lassoParams?: LassoToolParams;
+  onLassoParamsChange?: (params: LassoToolParams) => void;
   disabled?: boolean;
 }
 
@@ -31,21 +36,39 @@ export function SelectionTools({
   imageData,
   selection,
   onSelectionChange,
-  onSelectionOverlayChange,
+  activeTool,
+  onActiveToolChange,
+  wandParams: externalWandParams,
+  onWandParamsChange,
+  lassoParams: externalLassoParams,
+  onLassoParamsChange,
   disabled = false,
 }: SelectionToolsProps) {
-  const [activeTool, setActiveTool] = useState<SelectionToolType>('none');
-  const [wandParams, setWandParams] = useState<WandToolParams>({
+  const [internalWandParams, setInternalWandParams] = useState<WandToolParams>({
     tolerance: 32,
     contiguous: true,
     invert: false,
   });
-  const [lassoParams, setLassoParams] = useState<LassoToolParams>({
+  const [internalLassoParams, setInternalLassoParams] = useState<LassoToolParams>({
     feather: 0,
     invert: false,
   });
-  const [lassoPoints, setLassoPoints] = useState<Point[]>([]);
-  const [isDrawing, setIsDrawing] = useState(false);
+  
+  // 使用外部传入的参数或内部状态
+  const wandParams = externalWandParams ?? internalWandParams;
+  const lassoParams = externalLassoParams ?? internalLassoParams;
+  
+  const setWandParams = useCallback((params: WandToolParams | ((prev: WandToolParams) => WandToolParams)) => {
+    const newParams = typeof params === 'function' ? params(wandParams) : params;
+    setInternalWandParams(newParams);
+    onWandParamsChange?.(newParams);
+  }, [wandParams, onWandParamsChange]);
+  
+  const setLassoParams = useCallback((params: LassoToolParams | ((prev: LassoToolParams) => LassoToolParams)) => {
+    const newParams = typeof params === 'function' ? params(lassoParams) : params;
+    setInternalLassoParams(newParams);
+    onLassoParamsChange?.(newParams);
+  }, [lassoParams, onLassoParamsChange]);
   const [pixelData, setPixelData] = useState<ImageData | null>(null);
   
   // 加载像素数据
@@ -55,61 +78,11 @@ export function SelectionTools({
     }
   }, [imageData, imageWidth, imageHeight]);
   
-  // 更新选区可视化
-  useEffect(() => {
-    if (selection && imageWidth && imageHeight) {
-      const overlay = createSelectionOverlay(selection, imageWidth, imageHeight);
-      onSelectionOverlayChange(overlay);
-    } else {
-      onSelectionOverlayChange(null);
-    }
-  }, [selection, imageWidth, imageHeight, onSelectionOverlayChange]);
-  
-  // 处理魔棒点击
-  const handleWandClick = useCallback((x: number, y: number) => {
-    if (!pixelData || activeTool !== 'wand') return;
-    
-    const newSelection = magicWandSelect(pixelData, x, y, wandParams);
-    onSelectionChange(newSelection);
-  }, [pixelData, activeTool, wandParams, onSelectionChange]);
-  
-  // 处理套索绘制
-  const handleLassoStart = useCallback((x: number, y: number) => {
-    if (activeTool !== 'lasso') return;
-    
-    setLassoPoints([{ x, y }]);
-    setIsDrawing(true);
-  }, [activeTool]);
-  
-  const handleLassoMove = useCallback((x: number, y: number) => {
-    if (!isDrawing || activeTool !== 'lasso') return;
-    
-    setLassoPoints(prev => [...prev, { x, y }]);
-  }, [isDrawing, activeTool]);
-  
-  const handleLassoEnd = useCallback(() => {
-    if (!isDrawing || lassoPoints.length < 3) {
-      setLassoPoints([]);
-      setIsDrawing(false);
-      return;
-    }
-    
-    // 闭合多边形
-    const closedPoints = [...lassoPoints, lassoPoints[0]];
-    const newSelection = lassoSelect(imageWidth, imageHeight, closedPoints, lassoParams);
-    onSelectionChange(newSelection);
-    
-    setLassoPoints([]);
-    setIsDrawing(false);
-  }, [isDrawing, lassoPoints, imageWidth, imageHeight, lassoParams, onSelectionChange]);
-  
   // 清除选区
   const handleClearSelection = useCallback(() => {
     onSelectionChange(null);
-    setActiveTool('none');
-    setLassoPoints([]);
-    setIsDrawing(false);
-  }, [onSelectionChange]);
+    onActiveToolChange('none');
+  }, [onSelectionChange, onActiveToolChange]);
   
   // 全选
   const handleSelectAll = useCallback(() => {
@@ -136,7 +109,7 @@ export function SelectionTools({
                 variant={activeTool === 'wand' ? 'default' : 'ghost'}
                 size="icon"
                 className={`h-8 w-8 ${activeTool === 'wand' ? 'bg-gradient-to-r from-orange-500 to-cyan-500 text-black' : 'text-white/60 hover:text-white hover:bg-white/10'}`}
-                onClick={() => setActiveTool(activeTool === 'wand' ? 'none' : 'wand')}
+                onClick={() => onActiveToolChange(activeTool === 'wand' ? 'none' : 'wand')}
                 disabled={disabled}
               >
                 <Wand2 className="h-4 w-4" />
@@ -153,7 +126,7 @@ export function SelectionTools({
                 variant={activeTool === 'lasso' ? 'default' : 'ghost'}
                 size="icon"
                 className={`h-8 w-8 ${activeTool === 'lasso' ? 'bg-gradient-to-r from-orange-500 to-cyan-500 text-black' : 'text-white/60 hover:text-white hover:bg-white/10'}`}
-                onClick={() => setActiveTool(activeTool === 'lasso' ? 'none' : 'lasso')}
+                onClick={() => onActiveToolChange(activeTool === 'lasso' ? 'none' : 'lasso')}
                 disabled={disabled}
               >
                 <Lasso className="h-4 w-4" />
@@ -297,9 +270,6 @@ export function SelectionTools({
           选区: {selection.bounds.width} × {selection.bounds.height} px
         </div>
       )}
-      
-      {/* 导出工具方法 */}
-      <div className="hidden" data-selection-tool={activeTool} data-lasso-points={JSON.stringify(lassoPoints)} data-is-drawing={isDrawing} />
     </div>
   );
 }
