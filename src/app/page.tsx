@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { Download, Undo2, GitCompareArrows, ZoomIn, ZoomOut, Maximize, Sparkles, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -10,6 +10,7 @@ import { Histogram } from '@/components/histogram';
 import { HistoryPanel, HistoryEntry, CompareView } from '@/components/history-panel';
 import { BubblesBackground } from '@/components/ui/bubbles-background';
 import { PanelLayout } from '@/components/ui/panel-layout';
+import { SelectionTools, SelectionCanvas } from '@/components/selection-tools';
 import { 
   resize, rotate, flip, translate,
   toGrayscale, binary, logarithmicTransform, inverseTransform, gammaTransform,
@@ -21,6 +22,9 @@ import {
   applyThreshold, regionGrowing,
   ProcessImageData
 } from '@/lib/image-processing';
+import { applySelectionMask } from '@/lib/image-processing/selection-apply';
+import type { SelectionData, SelectionToolType, Point } from '@/lib/selection/types';
+import { magicWandSelect, lassoSelect, createSelectionOverlay } from '@/lib/selection/selection-utils';
 
 // 生成唯一ID
 const generateId = () => `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -42,6 +46,149 @@ export default function ImageProcessorPage() {
   const [showCompare, setShowCompare] = useState(false);
   const [zoom, setZoom] = useState(100);
   const [showReveal, setShowReveal] = useState(false); // 揭示动画状态
+  
+  // 选区工具状态
+  const [activeTool, setActiveTool] = useState<SelectionToolType>('none');
+  const [selection, setSelection] = useState<SelectionData | null>(null);
+  const [selectionOverlay, setSelectionOverlay] = useState<string | null>(null);
+  const [lassoPoints, setLassoPoints] = useState<Point[]>([]);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [imageElement, setImageElement] = useState<HTMLImageElement | null>(null);
+  
+  // 显示的图像
+  const displayImage = processedImage || currentImage;
+  
+  // 图像显示尺寸（用于坐标转换）
+  const imageDisplayRef = useRef<HTMLDivElement>(null);
+  const [imageDisplaySize, setImageDisplaySize] = useState({ width: 0, height: 0 });
+  
+  // 更新图像显示尺寸
+  useEffect(() => {
+    const updateSize = () => {
+      if (imageDisplayRef.current) {
+        const rect = imageDisplayRef.current.getBoundingClientRect();
+        setImageDisplaySize({ width: rect.width, height: rect.height });
+      }
+    };
+    
+    updateSize();
+    window.addEventListener('resize', updateSize);
+    return () => window.removeEventListener('resize', updateSize);
+  }, [displayImage]);
+  
+  // 更新选区可视化
+  useEffect(() => {
+    if (selection && displayImage) {
+      const overlay = createSelectionOverlay(selection, displayImage.width, displayImage.height);
+      setSelectionOverlay(overlay);
+    } else {
+      setSelectionOverlay(null);
+    }
+  }, [selection, displayImage]);
+  
+  // 坐标转换：屏幕坐标 -> 图像坐标
+  const screenToImageCoords = useCallback((screenX: number, screenY: number): { x: number; y: number } | null => {
+    if (!displayImage || !imageDisplayRef.current) return null;
+    
+    const rect = imageDisplayRef.current.getBoundingClientRect();
+    const imgElement = imageDisplayRef.current.querySelector('img');
+    if (!imgElement) return null;
+    
+    const imgRect = imgElement.getBoundingClientRect();
+    
+    // 相对于图像元素的位置
+    const relX = screenX - imgRect.left;
+    const relY = screenY - imgRect.top;
+    
+    // 转换为图像坐标
+    const x = Math.floor((relX / imgRect.width) * displayImage.width);
+    const y = Math.floor((relY / imgRect.height) * displayImage.height);
+    
+    return { x, y };
+  }, [displayImage]);
+  
+  // 获取图像像素数据
+  const getImagePixelData = useCallback(async (): Promise<ImageData | null> => {
+    if (!displayImage) return null;
+    
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = displayImage.width;
+        canvas.height = displayImage.height;
+        const ctx = canvas.getContext('2d')!;
+        ctx.drawImage(img, 0, 0);
+        resolve(ctx.getImageData(0, 0, canvas.width, canvas.height));
+      };
+      img.src = displayImage.dataUrl;
+    });
+  }, [displayImage]);
+  
+  // 魔棒工具点击处理
+  const handleWandClick = useCallback(async (x: number, y: number) => {
+    if (!displayImage) return;
+    
+    const pixelData = await getImagePixelData();
+    if (!pixelData) return;
+    
+    const newSelection = magicWandSelect(pixelData, x, y, {
+      tolerance: 32,
+      contiguous: true,
+      invert: false,
+    });
+    
+    setSelection(newSelection);
+  }, [displayImage, getImagePixelData]);
+  
+  // 套索工具处理
+  const handleLassoStart = useCallback((x: number, y: number) => {
+    setLassoPoints([{ x, y }]);
+    setIsDrawing(true);
+  }, []);
+  
+  const handleLassoMove = useCallback((x: number, y: number) => {
+    if (!isDrawing) return;
+    
+    setLassoPoints(prev => {
+      const lastPoint = prev[prev.length - 1];
+      // 只在移动一定距离后添加新点
+      if (lastPoint) {
+        const dx = x - lastPoint.x;
+        const dy = y - lastPoint.y;
+        if (Math.sqrt(dx * dx + dy * dy) < 3) return prev;
+      }
+      return [...prev, { x, y }];
+    });
+  }, [isDrawing]);
+  
+  const handleLassoEnd = useCallback(() => {
+    if (!isDrawing || lassoPoints.length < 3 || !displayImage) {
+      setLassoPoints([]);
+      setIsDrawing(false);
+      return;
+    }
+    
+    // 闭合多边形
+    const closedPoints = [...lassoPoints, lassoPoints[0]];
+    const newSelection = lassoSelect(displayImage.width, displayImage.height, closedPoints, {
+      feather: 0,
+      invert: false,
+    });
+    
+    setSelection(newSelection);
+    setLassoPoints([]);
+    setIsDrawing(false);
+  }, [isDrawing, lassoPoints, displayImage]);
+  
+  // 清除选区
+  const handleClearSelection = useCallback(() => {
+    setSelection(null);
+    setSelectionOverlay(null);
+    setActiveTool('none');
+    setLassoPoints([]);
+    setIsDrawing(false);
+  }, []);
 
   // 转换图像格式
   const toProcessImageData = (img: ImageFile | ProcessedImage): ProcessImageData => ({
@@ -221,9 +368,56 @@ export default function ImageProcessorPage() {
 
       // 更新处理后的图像 - 生成新的唯一ID避免冲突
       const newId = generateId();
+      
+      // 如果有选区，需要将处理结果与原图混合
+      let finalDataUrl = result.dataUrl;
+      if (selection && selection.bounds.width > 0) {
+        // 加载原图和处理后的图像
+        const originalImg = new Image();
+        const processedImg = new Image();
+        
+        await new Promise<void>((resolve) => {
+          let loaded = 0;
+          const checkLoaded = () => {
+            loaded++;
+            if (loaded === 2) resolve();
+          };
+          
+          originalImg.onload = checkLoaded;
+          processedImg.onload = checkLoaded;
+          originalImg.src = sourceImage.dataUrl;
+          processedImg.src = result.dataUrl;
+        });
+        
+        // 创建画布进行混合
+        const canvas = document.createElement('canvas');
+        canvas.width = result.width;
+        canvas.height = result.height;
+        const ctx = canvas.getContext('2d')!;
+        
+        // 获取原始像素数据
+        ctx.drawImage(originalImg, 0, 0);
+        const originalData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        
+        // 创建临时画布获取处理后像素数据
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = result.width;
+        tempCanvas.height = result.height;
+        const tempCtx = tempCanvas.getContext('2d')!;
+        tempCtx.drawImage(processedImg, 0, 0);
+        const processedData = tempCtx.getImageData(0, 0, canvas.width, canvas.height);
+        
+        // 应用选区混合
+        const mixedData = applySelectionMask(originalData, processedData, selection);
+        
+        // 输出结果
+        ctx.putImageData(mixedData, 0, 0);
+        finalDataUrl = canvas.toDataURL();
+      }
+      
       const newProcessedImage: ProcessedImage = {
         id: newId,
-        dataUrl: result.dataUrl,
+        dataUrl: finalDataUrl,
         width: result.width,
         height: result.height
       };
@@ -317,9 +511,6 @@ export default function ImageProcessorPage() {
     link.click();
   }, [processedImage, currentImage]);
 
-  // 显示的图像
-  const displayImage = processedImage || currentImage;
-
   return (
     <div className="h-screen flex flex-col relative overflow-hidden">
       {/* 动态泡泡背景 */}
@@ -399,7 +590,34 @@ export default function ImageProcessorPage() {
           minRightWidth={200}
           maxRightWidth={400}
           leftPanel={
-            <div className="h-full w-full overflow-hidden bg-black/40 backdrop-blur-xl border-r border-white/10">
+            <div className="h-full w-full overflow-y-auto bg-black/40 backdrop-blur-xl border-r border-white/10">
+              {/* 选区工具 */}
+              {displayImage && (
+                <div className="border-b border-white/10">
+                  <div className="px-3 py-2 flex items-center justify-between">
+                    <span className="text-xs font-medium text-white/70">选区工具</span>
+                    {selection && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-xs text-white/50 hover:text-white hover:bg-white/10"
+                        onClick={handleClearSelection}
+                      >
+                        清除
+                      </Button>
+                    )}
+                  </div>
+                  <SelectionTools
+                    imageWidth={displayImage.width}
+                    imageHeight={displayImage.height}
+                    imageData={displayImage.dataUrl}
+                    selection={selection}
+                    onSelectionChange={setSelection}
+                    onSelectionOverlayChange={setSelectionOverlay}
+                    disabled={isProcessing}
+                  />
+                </div>
+              )}
               <OperationPanel onApply={applyOperation} isProcessing={isProcessing} />
             </div>
           }
@@ -440,8 +658,27 @@ export default function ImageProcessorPage() {
               <div className="flex-1 min-h-0 overflow-auto flex items-center justify-center p-6">
                 {displayImage ? (
                   <div
+                    ref={imageDisplayRef}
                     className="relative transition-transform duration-300 ease-out origin-center"
                     style={{ transform: `scale(${zoom / 100})` }}
+                    onMouseDown={(e) => {
+                      if (activeTool === 'lasso') {
+                        const coords = screenToImageCoords(e.clientX, e.clientY);
+                        if (coords) handleLassoStart(coords.x, coords.y);
+                      }
+                    }}
+                    onMouseMove={(e) => {
+                      if (activeTool === 'lasso' && isDrawing) {
+                        const coords = screenToImageCoords(e.clientX, e.clientY);
+                        if (coords) handleLassoMove(coords.x, coords.y);
+                      }
+                    }}
+                    onMouseUp={() => {
+                      if (activeTool === 'lasso') handleLassoEnd();
+                    }}
+                    onMouseLeave={() => {
+                      if (activeTool === 'lasso' && isDrawing) handleLassoEnd();
+                    }}
                   >
                     {/* 虹彩光晕 */}
                     <div className="absolute -inset-6 bg-gradient-to-r from-orange-500/30 via-yellow-400/20 via-cyan-400/30 to-purple-500/30 blur-3xl rounded-3xl animate-pulse" />
@@ -449,7 +686,41 @@ export default function ImageProcessorPage() {
                       src={displayImage.dataUrl}
                       alt=""
                       className="relative max-w-full max-h-[calc(100vh-220px)] object-contain rounded-2xl shadow-2xl shadow-black/80"
+                      style={{ cursor: activeTool !== 'none' ? 'crosshair' : 'default' }}
+                      onClick={(e) => {
+                        if (activeTool === 'wand') {
+                          const coords = screenToImageCoords(e.clientX, e.clientY);
+                          if (coords) handleWandClick(coords.x, coords.y);
+                        }
+                      }}
                     />
+                    
+                    {/* 选区覆盖层 */}
+                    {selectionOverlay && activeTool !== 'none' && !isProcessing && (
+                      <img
+                        src={selectionOverlay}
+                        alt=""
+                        className="absolute inset-0 w-full h-full pointer-events-none"
+                        style={{ mixBlendMode: 'normal' }}
+                      />
+                    )}
+                    
+                    {/* 套索绘制路径 */}
+                    {lassoPoints.length > 0 && (
+                      <svg
+                        className="absolute inset-0 w-full h-full pointer-events-none"
+                        viewBox={`0 0 ${displayImage.width} ${displayImage.height}`}
+                      >
+                        <polyline
+                          points={lassoPoints.map(p => `${p.x},${p.y}`).join(' ')}
+                          fill="none"
+                          stroke="rgba(255, 255, 255, 0.9)"
+                          strokeWidth="1.5"
+                          strokeDasharray="4 4"
+                        />
+                      </svg>
+                    )}
+                    
                     {isProcessing && (
                       <div className="absolute inset-0 rounded-2xl overflow-hidden">
                         {/* 强模糊层 */}
