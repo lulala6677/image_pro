@@ -436,55 +436,68 @@ export default function ImageProcessorPage() {
       console.log('选区状态:', selection ? {
         hasMask: !!selection.mask,
         maskLength: selection.mask?.length,
+        maskWidth: selection.mask?.[0]?.length,
         boundsWidth: selection.bounds.width,
         boundsHeight: selection.bounds.height,
+        resultSize: `${result.width}x${result.height}`
       } : 'null');
       
       if (selection && selection.mask && selection.mask.length > 0 && selection.bounds.width > 0) {
-        console.log('应用选区混合...');
+        // 检查尺寸是否匹配
+        const maskHeight = selection.mask.length;
+        const maskWidth = selection.mask[0]?.length || 0;
         
-        // 加载原图和处理后的图像
-        const originalImg = new Image();
-        const processedImg = new Image();
+        if (maskWidth !== result.width || maskHeight !== result.height) {
+          console.warn('选区尺寸与图像不匹配，跳过选区应用:', {
+            maskSize: `${maskWidth}x${maskHeight}`,
+            imageSize: `${result.width}x${result.height}`
+          });
+        } else {
+          console.log('应用选区混合...');
         
-        await new Promise<void>((resolve) => {
-          let loaded = 0;
-          const checkLoaded = () => {
-            loaded++;
-            if (loaded === 2) resolve();
-          };
+          // 加载原图和处理后的图像
+          const originalImg = new Image();
+          const processedImg = new Image();
           
-          originalImg.onload = checkLoaded;
-          processedImg.onload = checkLoaded;
-          originalImg.src = sourceImage.dataUrl;
-          processedImg.src = result.dataUrl;
-        });
-        
-        // 创建画布进行混合
-        const canvas = document.createElement('canvas');
-        canvas.width = result.width;
-        canvas.height = result.height;
-        const ctx = canvas.getContext('2d')!;
-        
-        // 获取原始像素数据
-        ctx.drawImage(originalImg, 0, 0);
-        const originalData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        
-        // 创建临时画布获取处理后像素数据
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = result.width;
-        tempCanvas.height = result.height;
-        const tempCtx = tempCanvas.getContext('2d')!;
-        tempCtx.drawImage(processedImg, 0, 0);
-        const processedData = tempCtx.getImageData(0, 0, canvas.width, canvas.height);
-        
-        // 应用选区混合
-        const mixedData = applySelectionMask(originalData, processedData, selection);
-        
-        // 输出结果
-        ctx.putImageData(mixedData, 0, 0);
-        finalDataUrl = canvas.toDataURL();
-        console.log('选区混合完成');
+          await new Promise<void>((resolve) => {
+            let loaded = 0;
+            const checkLoaded = () => {
+              loaded++;
+              if (loaded === 2) resolve();
+            };
+            
+            originalImg.onload = checkLoaded;
+            processedImg.onload = checkLoaded;
+            originalImg.src = sourceImage.dataUrl;
+            processedImg.src = result.dataUrl;
+          });
+          
+          // 创建画布进行混合
+          const canvas = document.createElement('canvas');
+          canvas.width = result.width;
+          canvas.height = result.height;
+          const ctx = canvas.getContext('2d')!;
+          
+          // 获取原始像素数据
+          ctx.drawImage(originalImg, 0, 0);
+          const originalData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          
+          // 创建临时画布获取处理后像素数据
+          const tempCanvas = document.createElement('canvas');
+          tempCanvas.width = result.width;
+          tempCanvas.height = result.height;
+          const tempCtx = tempCanvas.getContext('2d')!;
+          tempCtx.drawImage(processedImg, 0, 0);
+          const processedData = tempCtx.getImageData(0, 0, canvas.width, canvas.height);
+          
+          // 应用选区混合
+          const mixedData = applySelectionMask(originalData, processedData, selection);
+          
+          // 输出结果
+          ctx.putImageData(mixedData, 0, 0);
+          finalDataUrl = canvas.toDataURL();
+          console.log('选区混合完成');
+        }
       }
       
       const newProcessedImage: ProcessedImage = {
@@ -507,7 +520,7 @@ export default function ImageProcessorPage() {
         id: newId,
         operation: operation,
         params: params,
-        dataUrl: result.dataUrl,
+        dataUrl: finalDataUrl,  // 使用应用选区后的最终结果
         width: result.width,
         height: result.height,
         timestamp: Date.now()

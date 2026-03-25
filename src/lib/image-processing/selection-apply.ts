@@ -14,6 +14,14 @@ export function applySelectionMask(
   processedData: ImageData,
   selection: SelectionData | null
 ): ImageData {
+  // 调试：输出选区信息
+  console.log('applySelectionMask 调用:', {
+    hasSelection: !!selection,
+    hasMask: selection?.mask ? true : false,
+    maskLength: selection?.mask?.length,
+    bounds: selection?.bounds
+  });
+  
   // 如果没有选区，直接返回处理后的图像
   if (!selection || !selection.mask || selection.bounds.width === 0) {
     console.log('无选区，返回处理后图像');
@@ -60,7 +68,7 @@ export function applySelectionMask(
     }
   }
   
-  console.log('选区应用完成:', { selectedCount, totalPixels: width * height });
+  console.log('选区应用完成:', { selectedCount, totalPixels: width * height, percentage: ((selectedCount / (width * height)) * 100).toFixed(2) + '%' });
   
   return result;
 }
