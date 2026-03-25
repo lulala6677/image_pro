@@ -373,7 +373,18 @@ export default function ImageProcessorPage() {
       
       // 如果有选区，需要将处理结果与原图混合
       let finalDataUrl = result.dataUrl;
-      if (selection && selection.bounds.width > 0) {
+      
+      // 调试：检查选区状态
+      console.log('选区状态:', selection ? {
+        hasMask: !!selection.mask,
+        maskLength: selection.mask?.length,
+        boundsWidth: selection.bounds.width,
+        boundsHeight: selection.bounds.height,
+      } : 'null');
+      
+      if (selection && selection.mask && selection.mask.length > 0 && selection.bounds.width > 0) {
+        console.log('应用选区混合...');
+        
         // 加载原图和处理后的图像
         const originalImg = new Image();
         const processedImg = new Image();
@@ -415,6 +426,7 @@ export default function ImageProcessorPage() {
         // 输出结果
         ctx.putImageData(mixedData, 0, 0);
         finalDataUrl = canvas.toDataURL();
+        console.log('选区混合完成');
       }
       
       const newProcessedImage: ProcessedImage = {
@@ -455,7 +467,7 @@ export default function ImageProcessorPage() {
       // 揭示动画持续1秒后消失
       setTimeout(() => setShowReveal(false), 1000);
     }
-  }, [currentImage, processedImage, historyIndex]);
+  }, [currentImage, processedImage, historyIndex, selection]);
 
   // 恢复历史
   const handleRestore = useCallback((id: string) => {

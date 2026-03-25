@@ -16,6 +16,7 @@ export function applySelectionMask(
 ): ImageData {
   // 如果没有选区，直接返回处理后的图像
   if (!selection || !selection.mask || selection.bounds.width === 0) {
+    console.log('无选区，返回处理后图像');
     return processedData;
   }
   
@@ -23,12 +24,27 @@ export function applySelectionMask(
   const result = new ImageData(width, height);
   const { mask } = selection;
   
+  // 检查 mask 尺寸是否匹配
+  if (mask.length !== height || (mask[0] && mask[0].length !== width)) {
+    console.warn('选区 mask 尺寸不匹配:', { 
+      maskHeight: mask.length, 
+      maskWidth: mask[0]?.length,
+      imageHeight: height,
+      imageWidth: width
+    });
+    return processedData;
+  }
+  
+  // 统计选区内像素数量
+  let selectedCount = 0;
+  
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const idx = (y * width + x) * 4;
       const isSelected = mask[y] && mask[y][x];
       
       if (isSelected) {
+        selectedCount++;
         // 选区内使用处理后的像素
         result.data[idx] = processedData.data[idx];
         result.data[idx + 1] = processedData.data[idx + 1];
@@ -43,6 +59,8 @@ export function applySelectionMask(
       }
     }
   }
+  
+  console.log('选区应用完成:', { selectedCount, totalPixels: width * height });
   
   return result;
 }

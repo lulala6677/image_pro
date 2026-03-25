@@ -32,8 +32,13 @@ export function magicWandSelect(
   const { width, height, data } = pixelData;
   const { tolerance, contiguous, invert } = params;
   
-  // 创建选区蒙版
-  const mask: boolean[][] = Array(height).fill(null).map(() => Array(width).fill(false));
+  console.log('魔棒选择:', { width, height, startX, startY, tolerance, contiguous });
+  
+  // 创建选区蒙版 - 确保每行是独立数组
+  const mask: boolean[][] = [];
+  for (let y = 0; y < height; y++) {
+    mask[y] = new Array(width).fill(false);
+  }
   
   // 获取起始点颜色
   const startIdx = (startY * width + startX) * 4;
@@ -122,12 +127,17 @@ export function lassoSelect(
 ): SelectionData {
   const { feather, invert } = params;
   
-  // 创建选区蒙版
-  const mask: boolean[][] = Array(height).fill(null).map(() => Array(width).fill(false));
+  // 创建选区蒙版 - 确保每行是独立数组
+  const mask: boolean[][] = [];
+  for (let y = 0; y < height; y++) {
+    mask[y] = new Array(width).fill(false);
+  }
   
   if (points.length < 3) {
     return { mask, bounds: { x: 0, y: 0, width: 0, height: 0 }, toolType: 'lasso' };
   }
+  
+  console.log('套索选择:', { width, height, pointsCount: points.length });
   
   // 使用射线法判断点是否在多边形内
   const pointInPolygon = (px: number, py: number): boolean => {
