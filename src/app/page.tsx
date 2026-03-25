@@ -10,7 +10,6 @@ import { Histogram } from '@/components/histogram';
 import { HistoryPanel, HistoryEntry, CompareView } from '@/components/history-panel';
 import { BubblesBackground } from '@/components/ui/bubbles-background';
 import { PanelLayout } from '@/components/ui/panel-layout';
-import { SelectionTools, SelectionCanvas } from '@/components/selection-tools';
 import { 
   resize, rotate, flip, translate,
   toGrayscale, binary, logarithmicTransform, inverseTransform, gammaTransform,
@@ -594,39 +593,20 @@ export default function ImageProcessorPage() {
           maxRightWidth={400}
           leftPanel={
             <div className="h-full w-full overflow-y-auto bg-black/40 backdrop-blur-xl border-r border-white/10">
-              {/* 选区工具 */}
-              {displayImage && (
-                <div className="border-b border-white/10">
-                  <div className="px-3 py-2 flex items-center justify-between">
-                    <span className="text-xs font-medium text-white/70">选区工具</span>
-                    {selection && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 px-2 text-xs text-white/50 hover:text-white hover:bg-white/10"
-                        onClick={handleClearSelection}
-                      >
-                        清除
-                      </Button>
-                    )}
-                  </div>
-                  <SelectionTools
-                    imageWidth={displayImage.width}
-                    imageHeight={displayImage.height}
-                    imageData={displayImage.dataUrl}
-                    selection={selection}
-                    onSelectionChange={setSelection}
-                    activeTool={activeTool}
-                    onActiveToolChange={setActiveTool}
-                    wandParams={wandParams}
-                    onWandParamsChange={setWandParams}
-                    lassoParams={lassoParams}
-                    onLassoParamsChange={setLassoParams}
-                    disabled={isProcessing}
-                  />
-                </div>
-              )}
-              <OperationPanel onApply={applyOperation} isProcessing={isProcessing} />
+              <OperationPanel 
+                onApply={applyOperation} 
+                isProcessing={isProcessing}
+                imageWidth={displayImage?.width}
+                imageHeight={displayImage?.height}
+                selection={selection}
+                onSelectionChange={setSelection}
+                activeTool={activeTool}
+                onActiveToolChange={setActiveTool}
+                wandParams={wandParams}
+                onWandParamsChange={setWandParams}
+                lassoParams={lassoParams}
+                onLassoParamsChange={setLassoParams}
+              />
             </div>
           }
           centerPanel={

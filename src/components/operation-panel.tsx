@@ -7,7 +7,7 @@ import {
   Sparkles, Activity,
   Cloud, Layers, Grid3x3, Wind, Focus, CircleDot as Bilateral,
   Scan, Palette, RefreshCw, Split, Sprout,
-  ChevronDown, ChevronRight, Wand2, GripHorizontal
+  ChevronDown, ChevronRight, Wand2, GripHorizontal, Lasso, Square, X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -18,6 +18,14 @@ import { Switch } from '@/components/ui/switch';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import { OPERATION_CONFIGS, OperationConfig, ParamConfig } from '@/lib/image-processing';
+import type { SelectionData, SelectionToolType, WandToolParams, LassoToolParams } from '@/lib/selection/types';
+import { selectAll, invertSelection } from '@/lib/selection/selection-utils';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Maximize2, RotateCw, FlipHorizontal, Move,
@@ -40,9 +48,33 @@ const categoryLabels: Record<string, string> = {
 interface OperationPanelProps {
   onApply: (operation: string, params: Record<string, unknown>) => void;
   isProcessing?: boolean;
+  // 选区相关 props
+  imageWidth?: number;
+  imageHeight?: number;
+  selection?: SelectionData | null;
+  onSelectionChange?: (selection: SelectionData | null) => void;
+  activeTool?: SelectionToolType;
+  onActiveToolChange?: (tool: SelectionToolType) => void;
+  wandParams?: WandToolParams;
+  onWandParamsChange?: (params: WandToolParams) => void;
+  lassoParams?: LassoToolParams;
+  onLassoParamsChange?: (params: LassoToolParams) => void;
 }
 
-export function OperationPanel({ onApply, isProcessing }: OperationPanelProps) {
+export function OperationPanel({ 
+  onApply, 
+  isProcessing,
+  imageWidth,
+  imageHeight,
+  selection,
+  onSelectionChange,
+  activeTool = 'none',
+  onActiveToolChange,
+  wandParams,
+  onWandParamsChange,
+  lassoParams,
+  onLassoParamsChange,
+}: OperationPanelProps) {
   const [selectedOperation, setSelectedOperation] = useState<string | null>(null);
   const [params, setParams] = useState<Record<string, unknown>>({});
   const [expandedCategories, setExpandedCategories] = useState<string[]>(['geometric']);
@@ -50,6 +82,50 @@ export function OperationPanel({ onApply, isProcessing }: OperationPanelProps) {
   const [isResizing, setIsResizing] = useState(false);
   const resizeRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  
+  // 选区工具内部状态
+  const [internalWandParams, setInternalWandParams] = useState<WandToolParams>({
+    tolerance: 32,
+    contiguous: true,
+    invert: false,
+  });
+  const [internalLassoParams, setInternalLassoParams] = useState<LassoToolParams>({
+    feather: 0,
+    invert: false,
+  });
+  
+  const currentWandParams = wandParams ?? internalWandParams;
+  const currentLassoParams = lassoParams ?? internalLassoParams;
+  
+  const handleWandParamsChange = useCallback((newParams: WandToolParams) => {
+    setInternalWandParams(newParams);
+    onWandParamsChange?.(newParams);
+  }, [onWandParamsChange]);
+  
+  const handleLassoParamsChange = useCallback((newParams: LassoToolParams) => {
+    setInternalLassoParams(newParams);
+    onLassoParamsChange?.(newParams);
+  }, [onLassoParamsChange]);
+  
+  // 清除选区
+  const handleClearSelection = useCallback(() => {
+    onSelectionChange?.(null);
+    onActiveToolChange?.('none');
+  }, [onSelectionChange, onActiveToolChange]);
+  
+  // 全选
+  const handleSelectAll = useCallback(() => {
+    if (imageWidth && imageHeight) {
+      onSelectionChange?.(selectAll(imageWidth, imageHeight));
+    }
+  }, [imageWidth, imageHeight, onSelectionChange]);
+  
+  // 反选
+  const handleInvertSelection = useCallback(() => {
+    if (selection) {
+      onSelectionChange?.(invertSelection(selection));
+    }
+  }, [selection, onSelectionChange]);
 
   const toggleCategory = (category: string) => {
     setExpandedCategories(prev => {
@@ -276,6 +352,193 @@ export function OperationPanel({ onApply, isProcessing }: OperationPanelProps) {
         </div>
       </div>
       <div className="flex-1 overflow-hidden flex flex-col gap-3 p-4">
+        {/* 选区工具 */}
+        {imageWidth && imageHeight && (
+          <div className="pb-3 border-b border-white/10">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="h-3.5 w-3.5 rounded bg-gradient-to-r from-orange-500 to-cyan-500" />
+              <span className="text-xs font-medium text-white/70">选区工具</span>
+              {selection && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-5 px-2 ml-auto text-[10px] text-white/40 hover:text-white hover:bg-white/10"
+                  onClick={handleClearSelection}
+                >
+                  清除
+                </Button>
+              )}
+            </div>
+            
+            {/* 工具按钮 */}
+            <div className="flex items-center gap-1.5 mb-3">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={cn(
+                        "h-7 w-7 rounded-md border transition-all",
+                        activeTool === 'wand' 
+                          ? "bg-gradient-to-r from-orange-500/80 to-yellow-500/80 border-orange-400/50 text-black shadow-lg shadow-orange-500/20" 
+                          : "bg-white/5 border-white/10 text-white/50 hover:text-white hover:bg-white/10 hover:border-white/20"
+                      )}
+                      onClick={() => onActiveToolChange?.(activeTool === 'wand' ? 'none' : 'wand')}
+                      disabled={isProcessing}
+                    >
+                      <Wand2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="bg-black/90 border-white/10 text-xs">
+                    <p>魔棒工具</p>
+                  </TooltipContent>
+                </Tooltip>
+                
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={cn(
+                        "h-7 w-7 rounded-md border transition-all",
+                        activeTool === 'lasso' 
+                          ? "bg-gradient-to-r from-cyan-500/80 to-purple-500/80 border-cyan-400/50 text-black shadow-lg shadow-cyan-500/20" 
+                          : "bg-white/5 border-white/10 text-white/50 hover:text-white hover:bg-white/10 hover:border-white/20"
+                      )}
+                      onClick={() => onActiveToolChange?.(activeTool === 'lasso' ? 'none' : 'lasso')}
+                      disabled={isProcessing}
+                    >
+                      <Lasso className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="bg-black/90 border-white/10 text-xs">
+                    <p>套索工具</p>
+                  </TooltipContent>
+                </Tooltip>
+                
+                <div className="w-px h-5 bg-white/10 mx-1" />
+                
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 rounded-md bg-white/5 border-white/10 text-white/50 hover:text-white hover:bg-white/10 hover:border-white/20"
+                      onClick={handleSelectAll}
+                      disabled={isProcessing}
+                    >
+                      <Square className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="bg-black/90 border-white/10 text-xs">
+                    <p>全选</p>
+                  </TooltipContent>
+                </Tooltip>
+                
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 rounded-md bg-white/5 border-white/10 text-white/50 hover:text-white hover:bg-white/10 hover:border-white/20 disabled:opacity-30"
+                      onClick={handleInvertSelection}
+                      disabled={isProcessing || !selection}
+                    >
+                      <RefreshCw className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="bg-black/90 border-white/10 text-xs">
+                    <p>反选</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+            
+            {/* 魔棒参数 */}
+            {activeTool === 'wand' && (
+              <div className="space-y-2.5 p-2.5 rounded-lg bg-gradient-to-r from-orange-500/10 to-yellow-500/10 border border-orange-500/20">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[10px] text-white/60">容差</Label>
+                    <span className="text-[10px] font-mono text-orange-300">{currentWandParams.tolerance}</span>
+                  </div>
+                  <Slider
+                    value={[currentWandParams.tolerance]}
+                    onValueChange={([value]) => handleWandParamsChange({ ...currentWandParams, tolerance: value })}
+                    min={1}
+                    max={100}
+                    step={1}
+                    className="w-full"
+                  />
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <Label className="text-[10px] text-white/60">连续</Label>
+                  <Switch
+                    checked={currentWandParams.contiguous}
+                    onCheckedChange={(checked) => handleWandParamsChange({ ...currentWandParams, contiguous: checked })}
+                    className="scale-75 origin-right"
+                  />
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <Label className="text-[10px] text-white/60">反选</Label>
+                  <Switch
+                    checked={currentWandParams.invert}
+                    onCheckedChange={(checked) => handleWandParamsChange({ ...currentWandParams, invert: checked })}
+                    className="scale-75 origin-right"
+                  />
+                </div>
+                
+                <p className="text-[9px] text-white/30 leading-relaxed pt-1">
+                  点击图像选择颜色相似的区域
+                </p>
+              </div>
+            )}
+            
+            {/* 套索参数 */}
+            {activeTool === 'lasso' && (
+              <div className="space-y-2.5 p-2.5 rounded-lg bg-gradient-to-r from-cyan-500/10 to-purple-500/10 border border-cyan-500/20">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[10px] text-white/60">羽化</Label>
+                    <span className="text-[10px] font-mono text-cyan-300">{currentLassoParams.feather}px</span>
+                  </div>
+                  <Slider
+                    value={[currentLassoParams.feather]}
+                    onValueChange={([value]) => handleLassoParamsChange({ ...currentLassoParams, feather: value })}
+                    min={0}
+                    max={20}
+                    step={1}
+                    className="w-full"
+                  />
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <Label className="text-[10px] text-white/60">反选</Label>
+                  <Switch
+                    checked={currentLassoParams.invert}
+                    onCheckedChange={(checked) => handleLassoParamsChange({ ...currentLassoParams, invert: checked })}
+                    className="scale-75 origin-right"
+                  />
+                </div>
+                
+                <p className="text-[9px] text-white/30 leading-relaxed pt-1">
+                  在图像上拖动绘制选区，松开完成选择
+                </p>
+              </div>
+            )}
+            
+            {/* 选区信息 */}
+            {selection && selection.bounds.width > 0 && (
+              <div className="mt-2 text-[9px] text-white/30 px-2 py-1 rounded bg-white/5 border border-white/5">
+                选区: {selection.bounds.width} × {selection.bounds.height} px
+              </div>
+            )}
+          </div>
+        )}
+        
         {/* 操作列表 */}
         <div className="flex-1 overflow-y-auto space-y-2 pr-1">
           {Object.entries(OPERATION_CONFIGS).map(([category, operations]) => (
