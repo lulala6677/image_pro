@@ -521,15 +521,6 @@ export function OperationPanel({
                   />
                 </div>
                 
-                <div className="flex items-center justify-between">
-                  <Label className="text-[10px] text-white/60">反选</Label>
-                  <Switch
-                    checked={currentWandParams.invert}
-                    onCheckedChange={(checked) => handleWandParamsChange({ ...currentWandParams, invert: checked })}
-                    className="scale-75 origin-right"
-                  />
-                </div>
-                
                 <p className="text-[9px] text-white/30 leading-relaxed pt-1">
                   点击图像选择颜色相似的区域
                 </p>
@@ -551,15 +542,6 @@ export function OperationPanel({
                     max={20}
                     step={1}
                     className="w-full"
-                  />
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <Label className="text-[10px] text-white/60">反选</Label>
-                  <Switch
-                    checked={currentLassoParams.invert}
-                    onCheckedChange={(checked) => handleLassoParamsChange({ ...currentLassoParams, invert: checked })}
-                    className="scale-75 origin-right"
                   />
                 </div>
                 
