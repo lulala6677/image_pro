@@ -1,7 +1,7 @@
 // 选区工具类型定义
 
 // 选区工具类型
-export type SelectionToolType = 'wand' | 'lasso' | 'none';
+export type SelectionToolType = 'wand' | 'lasso' | 'rectangle' | 'ellipse' | 'none';
 
 // 点
 export interface Point {

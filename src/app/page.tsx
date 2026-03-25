@@ -23,7 +23,7 @@ import {
 } from '@/lib/image-processing';
 import { applySelectionMask } from '@/lib/image-processing/selection-apply';
 import type { SelectionData, SelectionToolType, Point, WandToolParams, LassoToolParams } from '@/lib/selection/types';
-import { magicWandSelect, lassoSelect, createSelectionOverlay } from '@/lib/selection/selection-utils';
+import { magicWandSelect, lassoSelect, createSelectionOverlay, rectangleSelect, ellipseSelect } from '@/lib/selection/selection-utils';
 
 // 生成唯一ID
 const generateId = () => `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -52,6 +52,9 @@ export default function ImageProcessorPage() {
   const [selectionOverlay, setSelectionOverlay] = useState<string | null>(null);
   const [lassoPoints, setLassoPoints] = useState<Point[]>([]);
   const [isDrawing, setIsDrawing] = useState(false);
+  // 矩形/椭圆选区绘制状态
+  const [shapeStartPoint, setShapeStartPoint] = useState<Point | null>(null);
+  const [shapeEndPoint, setShapeEndPoint] = useState<Point | null>(null);
   const [wandParams, setWandParams] = useState<WandToolParams>({
     tolerance: 32,
     contiguous: true,
@@ -183,6 +186,59 @@ export default function ImageProcessorPage() {
     });
   }, [displayImage, lassoParams]);
   
+  // 矩形/椭圆选区工具处理
+  const handleShapeStart = useCallback((x: number, y: number) => {
+    setShapeStartPoint({ x, y });
+    setShapeEndPoint({ x, y });
+    setIsDrawing(true);
+  }, []);
+  
+  const handleShapeMove = useCallback((x: number, y: number) => {
+    if (isDrawing && shapeStartPoint) {
+      setShapeEndPoint({ x, y });
+    }
+  }, [isDrawing, shapeStartPoint]);
+  
+  const handleShapeEnd = useCallback(() => {
+    setIsDrawing(false);
+    
+    if (!displayImage || !shapeStartPoint || !shapeEndPoint) {
+      setShapeStartPoint(null);
+      setShapeEndPoint(null);
+      return;
+    }
+    
+    let newSelection: SelectionData;
+    
+    if (activeTool === 'rectangle') {
+      newSelection = rectangleSelect(
+        displayImage.width,
+        displayImage.height,
+        shapeStartPoint.x,
+        shapeStartPoint.y,
+        shapeEndPoint.x,
+        shapeEndPoint.y
+      );
+    } else if (activeTool === 'ellipse') {
+      newSelection = ellipseSelect(
+        displayImage.width,
+        displayImage.height,
+        shapeStartPoint.x,
+        shapeStartPoint.y,
+        shapeEndPoint.x,
+        shapeEndPoint.y
+      );
+    } else {
+      setShapeStartPoint(null);
+      setShapeEndPoint(null);
+      return;
+    }
+    
+    setSelection(newSelection);
+    setShapeStartPoint(null);
+    setShapeEndPoint(null);
+  }, [displayImage, shapeStartPoint, shapeEndPoint, activeTool]);
+  
   // 清除选区
   const handleClearSelection = useCallback(() => {
     setSelection(null);
@@ -190,6 +246,8 @@ export default function ImageProcessorPage() {
     setActiveTool('none');
     setLassoPoints([]);
     setIsDrawing(false);
+    setShapeStartPoint(null);
+    setShapeEndPoint(null);
   }, []);
 
   // 转换图像格式
@@ -672,19 +730,28 @@ export default function ImageProcessorPage() {
                         e.preventDefault();
                         const coords = screenToImageCoords(e.clientX, e.clientY);
                         if (coords) handleLassoStart(coords.x, coords.y);
+                      } else if (activeTool === 'rectangle' || activeTool === 'ellipse') {
+                        e.preventDefault();
+                        const coords = screenToImageCoords(e.clientX, e.clientY);
+                        if (coords) handleShapeStart(coords.x, coords.y);
                       }
                     }}
                     onMouseMove={(e) => {
                       if (activeTool === 'lasso' && isDrawing) {
                         const coords = screenToImageCoords(e.clientX, e.clientY);
                         if (coords) handleLassoMove(coords.x, coords.y);
+                      } else if ((activeTool === 'rectangle' || activeTool === 'ellipse') && isDrawing) {
+                        const coords = screenToImageCoords(e.clientX, e.clientY);
+                        if (coords) handleShapeMove(coords.x, coords.y);
                       }
                     }}
                     onMouseUp={() => {
                       if (activeTool === 'lasso') handleLassoEnd();
+                      else if (activeTool === 'rectangle' || activeTool === 'ellipse') handleShapeEnd();
                     }}
                     onMouseLeave={() => {
                       if (activeTool === 'lasso' && isDrawing) handleLassoEnd();
+                      else if ((activeTool === 'rectangle' || activeTool === 'ellipse') && isDrawing) handleShapeEnd();
                     }}
                   >
                     {/* 虹彩光晕 */}
@@ -719,6 +786,38 @@ export default function ImageProcessorPage() {
                           strokeWidth="1.5"
                           strokeDasharray="4 4"
                         />
+                      </svg>
+                    )}
+                    
+                    {/* 矩形/椭圆选区绘制预览 */}
+                    {(activeTool === 'rectangle' || activeTool === 'ellipse') && isDrawing && shapeStartPoint && shapeEndPoint && displayImage && (
+                      <svg
+                        className="absolute inset-0 w-full h-full pointer-events-none"
+                        viewBox={`0 0 ${displayImage.width} ${displayImage.height}`}
+                      >
+                        {activeTool === 'rectangle' ? (
+                          <rect
+                            x={Math.min(shapeStartPoint.x, shapeEndPoint.x)}
+                            y={Math.min(shapeStartPoint.y, shapeEndPoint.y)}
+                            width={Math.abs(shapeEndPoint.x - shapeStartPoint.x)}
+                            height={Math.abs(shapeEndPoint.y - shapeStartPoint.y)}
+                            fill="rgba(59, 130, 246, 0.2)"
+                            stroke="rgba(255, 255, 255, 0.9)"
+                            strokeWidth="1.5"
+                            strokeDasharray="4 4"
+                          />
+                        ) : (
+                          <ellipse
+                            cx={(shapeStartPoint.x + shapeEndPoint.x) / 2}
+                            cy={(shapeStartPoint.y + shapeEndPoint.y) / 2}
+                            rx={Math.abs(shapeEndPoint.x - shapeStartPoint.x) / 2}
+                            ry={Math.abs(shapeEndPoint.y - shapeStartPoint.y) / 2}
+                            fill="rgba(236, 72, 153, 0.2)"
+                            stroke="rgba(255, 255, 255, 0.9)"
+                            strokeWidth="1.5"
+                            strokeDasharray="4 4"
+                          />
+                        )}
                       </svg>
                     )}
                     

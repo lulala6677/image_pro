@@ -347,6 +347,100 @@ export function selectAll(width: number, height: number): SelectionData {
 }
 
 /**
+ * 矩形选区
+ */
+export function rectangleSelect(
+  width: number,
+  height: number,
+  startX: number,
+  startY: number,
+  endX: number,
+  endY: number
+): SelectionData {
+  // 创建选区蒙版 - 确保每行是独立数组
+  const mask: boolean[][] = [];
+  for (let y = 0; y < height; y++) {
+    mask[y] = new Array(width).fill(false);
+  }
+  
+  // 计算矩形边界
+  const minX = Math.max(0, Math.min(startX, endX));
+  const maxX = Math.min(width - 1, Math.max(startX, endX));
+  const minY = Math.max(0, Math.min(startY, endY));
+  const maxY = Math.min(height - 1, Math.max(startY, endY));
+  
+  console.log('矩形选择:', { width, height, startX, startY, endX, endY, minX, maxX, minY, maxY });
+  
+  // 填充矩形区域
+  for (let y = minY; y <= maxY; y++) {
+    for (let x = minX; x <= maxX; x++) {
+      mask[y][x] = true;
+    }
+  }
+  
+  // 计算边界
+  const bounds = {
+    x: minX,
+    y: minY,
+    width: maxX - minX + 1,
+    height: maxY - minY + 1,
+  };
+  
+  return { mask, bounds, toolType: 'rectangle' };
+}
+
+/**
+ * 椭圆选区
+ */
+export function ellipseSelect(
+  width: number,
+  height: number,
+  startX: number,
+  startY: number,
+  endX: number,
+  endY: number
+): SelectionData {
+  // 创建选区蒙版 - 确保每行是独立数组
+  const mask: boolean[][] = [];
+  for (let y = 0; y < height; y++) {
+    mask[y] = new Array(width).fill(false);
+  }
+  
+  // 计算椭圆边界框
+  const minX = Math.max(0, Math.min(startX, endX));
+  const maxX = Math.min(width - 1, Math.max(startX, endX));
+  const minY = Math.max(0, Math.min(startY, endY));
+  const maxY = Math.min(height - 1, Math.max(startY, endY));
+  
+  // 椭圆中心和半径
+  const centerX = (minX + maxX) / 2;
+  const centerY = (minY + maxY) / 2;
+  const radiusX = (maxX - minX) / 2;
+  const radiusY = (maxY - minY) / 2;
+  
+  console.log('椭圆选择:', { width, height, startX, startY, endX, endY, centerX, centerY, radiusX, radiusY });
+  
+  // 填充椭圆区域
+  if (radiusX > 0 && radiusY > 0) {
+    for (let y = minY; y <= maxY; y++) {
+      for (let x = minX; x <= maxX; x++) {
+        // 椭圆方程: (x-cx)²/rx² + (y-cy)²/ry² <= 1
+        const dx = x - centerX;
+        const dy = y - centerY;
+        if ((dx * dx) / (radiusX * radiusX) + (dy * dy) / (radiusY * radiusY) <= 1) {
+          mask[y][x] = true;
+        }
+      }
+    }
+  }
+  
+  // 计算边界
+  const bounds = calculateBounds(mask, width, height);
+  
+  return { mask, bounds, toolType: 'ellipse' };
+}
+
+/**
  * 反选选区
  */
 export function invertSelection(selection: SelectionData): SelectionData {

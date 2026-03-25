@@ -113,14 +113,7 @@ export function OperationPanel({
     onActiveToolChange?.('none');
   }, [onSelectionChange, onActiveToolChange]);
   
-  // 全选
-  const handleSelectAll = useCallback(() => {
-    if (imageWidth && imageHeight) {
-      onSelectionChange?.(selectAll(imageWidth, imageHeight));
-    }
-  }, [imageWidth, imageHeight, onSelectionChange]);
-  
-  // 反选
+  // 清除选区
   const handleInvertSelection = useCallback(() => {
     if (selection) {
       onSelectionChange?.(invertSelection(selection));
@@ -424,17 +417,46 @@ export function OperationPanel({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7 rounded-md bg-white/5 border-white/10 text-white/50 hover:text-white hover:bg-white/10 hover:border-white/20"
-                      onClick={handleSelectAll}
+                      className={cn(
+                        "h-7 w-7 rounded-md border transition-all",
+                        activeTool === 'rectangle' 
+                          ? "bg-gradient-to-r from-blue-500/80 to-indigo-500/80 border-blue-400/50 text-black shadow-lg shadow-blue-500/20" 
+                          : "bg-white/5 border-white/10 text-white/50 hover:text-white hover:bg-white/10 hover:border-white/20"
+                      )}
+                      onClick={() => onActiveToolChange?.(activeTool === 'rectangle' ? 'none' : 'rectangle')}
                       disabled={isProcessing}
                     >
                       <Square className="h-3.5 w-3.5" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="bg-black/90 border-white/10 text-xs">
-                    <p>全选</p>
+                    <p>矩形选区</p>
                   </TooltipContent>
                 </Tooltip>
+                
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={cn(
+                        "h-7 w-7 rounded-md border transition-all",
+                        activeTool === 'ellipse' 
+                          ? "bg-gradient-to-r from-pink-500/80 to-rose-500/80 border-pink-400/50 text-black shadow-lg shadow-pink-500/20" 
+                          : "bg-white/5 border-white/10 text-white/50 hover:text-white hover:bg-white/10 hover:border-white/20"
+                      )}
+                      onClick={() => onActiveToolChange?.(activeTool === 'ellipse' ? 'none' : 'ellipse')}
+                      disabled={isProcessing}
+                    >
+                      <Circle className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="bg-black/90 border-white/10 text-xs">
+                    <p>椭圆选区</p>
+                  </TooltipContent>
+                </Tooltip>
+                
+                <div className="w-px h-5 bg-white/10 mx-1" />
                 
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -450,6 +472,23 @@ export function OperationPanel({
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="bg-black/90 border-white/10 text-xs">
                     <p>反选</p>
+                  </TooltipContent>
+                </Tooltip>
+                
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 rounded-md bg-white/5 border-white/10 text-white/50 hover:text-red-400 hover:bg-red-500/10 hover:border-red-500/30 disabled:opacity-30"
+                      onClick={handleClearSelection}
+                      disabled={isProcessing || !selection}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="bg-black/90 border-white/10 text-xs">
+                    <p>取消选区</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
