@@ -843,9 +843,9 @@ export default function ImageProcessorPage() {
 
               {/* 图像显示区 */}
               <div className="flex-1 min-h-0 overflow-auto flex items-center justify-center p-6 relative">
-                {/* 更换图片按钮 - 从左侧滑入动画 */}
+                {/* 更换图片按钮 - 从中间滑动到右上角动画 */}
                 {displayImage && (
-                  <label className="absolute top-4 right-4 z-20 cursor-pointer animate-replace-button">
+                  <label className="absolute z-20 cursor-pointer animate-replace-button">
                     <input
                       type="file"
                       accept="image/*"
