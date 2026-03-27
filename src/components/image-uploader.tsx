@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useState } from 'react';
-import { Upload, X, Image as ImageIcon, Sparkles } from 'lucide-react';
+import { useCallback, useState, useRef } from 'react';
+import { Upload, X, Image as ImageIcon, Sparkles, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -23,6 +23,7 @@ interface ImageUploaderProps {
 export function ImageUploader({ onImageLoad, currentImage, onClear }: ImageUploaderProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const replaceInputRef = useRef<HTMLInputElement>(null);
 
   const loadImage = useCallback((file: File) => {
     setIsLoading(true);
@@ -100,14 +101,26 @@ export function ImageUploader({ onImageLoad, currentImage, onClear }: ImageUploa
               }}
             />
           )}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute top-3 right-3 h-8 w-8 bg-white/10 hover:bg-red-500/80 text-white/70 hover:text-white border border-white/20 backdrop-blur-sm"
-            onClick={onClear}
-          >
-            <X className="h-4 w-4" />
-          </Button>
+          {/* 操作按钮组 */}
+          <div className="absolute top-3 right-3 flex gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-1.5 bg-orange-500/20 hover:bg-orange-500/40 text-orange-300 hover:text-white border border-orange-400/30 backdrop-blur-sm"
+              onClick={() => replaceInputRef.current?.click()}
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              <span className="text-xs">更换</span>
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 bg-white/10 hover:bg-red-500/80 text-white/70 hover:text-white border border-white/20 backdrop-blur-sm"
+              onClick={onClear}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
         <div className="p-3 border-t border-white/10 bg-white/5">
           <p className="text-sm font-medium truncate text-white/70">{currentImage.name}</p>
@@ -115,6 +128,14 @@ export function ImageUploader({ onImageLoad, currentImage, onClear }: ImageUploa
             {currentImage.width} × {currentImage.height} px
           </p>
         </div>
+        {/* 隐藏的文件输入框用于更换图片 */}
+        <input
+          ref={replaceInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleFileInput}
+        />
       </div>
     );
   }

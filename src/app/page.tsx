@@ -639,6 +639,25 @@ export default function ImageProcessorPage() {
     setHistoryIndex(-1);
   }, []);
 
+  // 加载新图片（更换图片时清除所有处理状态）
+  const handleNewImage = useCallback((image: ImageFile) => {
+    setCurrentImage(image);
+    // 清除处理后的图片
+    setProcessedImage(null);
+    // 清除历史记录
+    setHistory([]);
+    setHistoryIndex(-1);
+    // 清除选区
+    setSelection(null);
+    setSelectionOverlay(null);
+    setLassoPoints([]);
+    setIsDrawing(false);
+    setShapeStartPoint(null);
+    setShapeEndPoint(null);
+    // 重置缩放
+    setZoom(100);
+  }, []);
+
   // 下载图像
   const handleDownload = useCallback(() => {
     const image = processedImage || currentImage;
@@ -1000,7 +1019,7 @@ export default function ImageProcessorPage() {
                   </div>
                 ) : (
                   <ImageUploader
-                    onImageLoad={setCurrentImage}
+                    onImageLoad={handleNewImage}
                     currentImage={null}
                   />
                 )}
