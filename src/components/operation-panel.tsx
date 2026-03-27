@@ -374,8 +374,8 @@ export function OperationPanel({
                       className={cn(
                         "h-7 w-7 rounded-md border transition-all",
                         activeTool === 'wand' 
-                          ? "bg-gradient-to-r from-orange-500/80 to-yellow-500/80 border-orange-400/50 text-black shadow-lg shadow-orange-500/20" 
-                          : "bg-white/5 border-white/10 text-white/50 hover:text-white hover:bg-white/10 hover:border-white/20"
+                          ? "bg-gradient-to-r from-orange-500 to-yellow-400 border-orange-400/50 text-black shadow-lg shadow-orange-500/30" 
+                          : "bg-white/5 border-white/10 text-white/50 hover:text-orange-400 hover:bg-orange-500/10 hover:border-orange-500/30"
                       )}
                       onClick={() => onActiveToolChange?.(activeTool === 'wand' ? 'none' : 'wand')}
                       disabled={isProcessing}
@@ -396,8 +396,8 @@ export function OperationPanel({
                       className={cn(
                         "h-7 w-7 rounded-md border transition-all",
                         activeTool === 'lasso' 
-                          ? "bg-gradient-to-r from-cyan-500/80 to-purple-500/80 border-cyan-400/50 text-black shadow-lg shadow-cyan-500/20" 
-                          : "bg-white/5 border-white/10 text-white/50 hover:text-white hover:bg-white/10 hover:border-white/20"
+                          ? "bg-gradient-to-r from-yellow-400 to-cyan-400 border-yellow-400/50 text-black shadow-lg shadow-yellow-500/30" 
+                          : "bg-white/5 border-white/10 text-white/50 hover:text-yellow-400 hover:bg-yellow-500/10 hover:border-yellow-500/30"
                       )}
                       onClick={() => onActiveToolChange?.(activeTool === 'lasso' ? 'none' : 'lasso')}
                       disabled={isProcessing}
@@ -420,8 +420,8 @@ export function OperationPanel({
                       className={cn(
                         "h-7 w-7 rounded-md border transition-all",
                         activeTool === 'rectangle' 
-                          ? "bg-gradient-to-r from-blue-500/80 to-indigo-500/80 border-blue-400/50 text-black shadow-lg shadow-blue-500/20" 
-                          : "bg-white/5 border-white/10 text-white/50 hover:text-white hover:bg-white/10 hover:border-white/20"
+                          ? "bg-gradient-to-r from-cyan-400 to-purple-500 border-cyan-400/50 text-black shadow-lg shadow-cyan-500/30" 
+                          : "bg-white/5 border-white/10 text-white/50 hover:text-cyan-400 hover:bg-cyan-500/10 hover:border-cyan-500/30"
                       )}
                       onClick={() => onActiveToolChange?.(activeTool === 'rectangle' ? 'none' : 'rectangle')}
                       disabled={isProcessing}
@@ -442,8 +442,8 @@ export function OperationPanel({
                       className={cn(
                         "h-7 w-7 rounded-md border transition-all",
                         activeTool === 'ellipse' 
-                          ? "bg-gradient-to-r from-pink-500/80 to-rose-500/80 border-pink-400/50 text-black shadow-lg shadow-pink-500/20" 
-                          : "bg-white/5 border-white/10 text-white/50 hover:text-white hover:bg-white/10 hover:border-white/20"
+                          ? "bg-gradient-to-r from-purple-500 to-orange-400 border-purple-400/50 text-black shadow-lg shadow-purple-500/30" 
+                          : "bg-white/5 border-white/10 text-white/50 hover:text-purple-400 hover:bg-purple-500/10 hover:border-purple-500/30"
                       )}
                       onClick={() => onActiveToolChange?.(activeTool === 'ellipse' ? 'none' : 'ellipse')}
                       disabled={isProcessing}
@@ -463,7 +463,7 @@ export function OperationPanel({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7 rounded-md bg-white/5 border-white/10 text-white/50 hover:text-white hover:bg-white/10 hover:border-white/20 disabled:opacity-30"
+                      className="h-7 w-7 rounded-md bg-white/5 border-white/10 text-white/50 hover:text-cyan-400 hover:bg-cyan-500/10 hover:border-cyan-500/30 disabled:opacity-30"
                       onClick={handleInvertSelection}
                       disabled={isProcessing || !selection}
                     >
@@ -480,7 +480,7 @@ export function OperationPanel({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7 rounded-md bg-white/5 border-white/10 text-white/50 hover:text-red-400 hover:bg-red-500/10 hover:border-red-500/30 disabled:opacity-30"
+                      className="h-7 w-7 rounded-md bg-white/5 border-white/10 text-white/50 hover:text-orange-400 hover:bg-orange-500/10 hover:border-orange-500/30 disabled:opacity-30"
                       onClick={handleClearSelection}
                       disabled={isProcessing || !selection}
                     >
@@ -496,7 +496,7 @@ export function OperationPanel({
             
             {/* 魔棒参数 */}
             {activeTool === 'wand' && (
-              <div className="space-y-2.5 p-2.5 rounded-lg bg-gradient-to-r from-orange-500/10 to-yellow-500/10 border border-orange-500/20">
+              <div className="space-y-2.5 p-2.5 rounded-lg bg-gradient-to-r from-orange-500/10 to-yellow-400/10 border border-orange-500/20">
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <Label className="text-[10px] text-white/60">容差</Label>
@@ -529,11 +529,11 @@ export function OperationPanel({
             
             {/* 套索参数 */}
             {activeTool === 'lasso' && (
-              <div className="space-y-2.5 p-2.5 rounded-lg bg-gradient-to-r from-cyan-500/10 to-purple-500/10 border border-cyan-500/20">
+              <div className="space-y-2.5 p-2.5 rounded-lg bg-gradient-to-r from-yellow-400/10 to-cyan-400/10 border border-yellow-500/20">
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <Label className="text-[10px] text-white/60">羽化</Label>
-                    <span className="text-[10px] font-mono text-cyan-300">{currentLassoParams.feather}px</span>
+                    <span className="text-[10px] font-mono text-yellow-300">{currentLassoParams.feather}px</span>
                   </div>
                   <Slider
                     value={[currentLassoParams.feather]}
