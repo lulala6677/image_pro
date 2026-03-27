@@ -795,12 +795,18 @@ export default function ImageProcessorPage() {
                   >
                     {/* 虹彩光晕 */}
                     <div className="absolute -inset-6 bg-gradient-to-r from-orange-500/30 via-yellow-400/20 via-cyan-400/30 to-purple-500/30 blur-3xl rounded-3xl animate-pulse" />
-                    <img
-                      src={displayImage.dataUrl}
-                      alt=""
-                      className="relative max-w-full max-h-[calc(100vh-220px)] object-contain rounded-2xl shadow-2xl shadow-black/80"
-                      style={{ pointerEvents: 'none' }}
-                    />
+                    {displayImage?.dataUrl && (
+                      <img
+                        src={displayImage.dataUrl}
+                        alt=""
+                        className="relative max-w-full max-h-[calc(100vh-220px)] object-contain rounded-2xl shadow-2xl shadow-black/80"
+                        style={{ pointerEvents: 'none' }}
+                        onError={(e) => {
+                          // 防止图片加载失败时触发沙箱环境的默认错误行为
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    )}
                     
                     {/* 选区覆盖层 */}
                     {selectionOverlay && (
@@ -809,6 +815,10 @@ export default function ImageProcessorPage() {
                         alt=""
                         className="absolute inset-0 w-full h-full pointer-events-none"
                         style={{ mixBlendMode: 'normal' }}
+                        onError={(e) => {
+                          // 防止图片加载失败时触发沙箱环境的默认错误行为
+                          e.currentTarget.style.display = 'none';
+                        }}
                       />
                     )}
                     

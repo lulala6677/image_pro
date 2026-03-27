@@ -102,15 +102,21 @@ export function HistoryPanel({ entries, currentId, onRestore, onClear }: History
             onClick={() => onRestore(entry.id)}
           >
             <div className="aspect-video relative overflow-hidden">
-              <img
-                src={entry.dataUrl}
-                alt={entry.operation}
-                className={cn(
-                  "w-full h-full object-cover",
-                  "transition-transform duration-300",
-                  hoveredId === entry.id && "scale-105"
-                )}
-              />
+              {entry.dataUrl && (
+                <img
+                  src={entry.dataUrl}
+                  alt={entry.operation}
+                  className={cn(
+                    "w-full h-full object-cover",
+                    "transition-transform duration-300",
+                    hoveredId === entry.id && "scale-105"
+                  )}
+                  onError={(e) => {
+                    // 防止图片加载失败时触发沙箱环境的默认错误行为
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+              )}
               {/* 悬浮时的渐变覆盖层 - 虹彩风格 */}
               <div className={cn(
                 "absolute inset-0",

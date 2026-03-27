@@ -89,11 +89,17 @@ export function ImageUploader({ onImageLoad, currentImage, onClear }: ImageUploa
     return (
       <div className="relative overflow-hidden rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10">
         <div className="aspect-video relative flex items-center justify-center p-4">
-          <img
-            src={currentImage.dataUrl}
-            alt={currentImage.name}
-            className="max-w-full max-h-full object-contain rounded-lg"
-          />
+          {currentImage?.dataUrl && (
+            <img
+              src={currentImage.dataUrl}
+              alt={currentImage.name}
+              className="max-w-full max-h-full object-contain rounded-lg"
+              onError={(e) => {
+                // 防止图片加载失败时触发沙箱环境的默认错误行为
+                e.currentTarget.style.display = 'none';
+              }}
+            />
+          )}
           <Button
             variant="ghost"
             size="icon"
