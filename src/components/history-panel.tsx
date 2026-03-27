@@ -181,6 +181,8 @@ interface CompareViewProps {
 export function CompareView({ original, processed, onClose, onDownload }: CompareViewProps) {
   const [sliderPosition, setSliderPosition] = useState(50);
   const [isDragging, setIsDragging] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState({ original: false, processed: false });
+  const [imageError, setImageError] = useState({ original: false, processed: false });
   const containerRef = useRef<HTMLDivElement>(null);
 
   const handleMouseDown = () => setIsDragging(true);
@@ -202,6 +204,16 @@ export function CompareView({ original, processed, onClose, onDownload }: Compar
     const x = Math.max(0, Math.min(e.touches[0].clientX - rect.left, rect.width));
     const percentage = (x / rect.width) * 100;
     setSliderPosition(percentage);
+  }, []);
+
+  const handleImageLoad = useCallback((type: 'original' | 'processed') => {
+    setImageLoaded(prev => ({ ...prev, [type]: true }));
+    setImageError(prev => ({ ...prev, [type]: false }));
+  }, []);
+
+  const handleImageError = useCallback((type: 'original' | 'processed') => {
+    console.error(`Failed to load ${type} image`);
+    setImageError(prev => ({ ...prev, [type]: true }));
   }, []);
 
   return (
@@ -236,17 +248,39 @@ export function CompareView({ original, processed, onClose, onDownload }: Compar
         {/* 对比滑块 */}
         <div 
           ref={containerRef}
-          className="relative aspect-video rounded-2xl overflow-hidden cursor-col-resize border border-white/20 shadow-2xl"
+          className="relative aspect-video rounded-2xl overflow-hidden cursor-col-resize border border-white/20 shadow-2xl bg-black"
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
           onTouchMove={handleTouchMove}
         >
+          {/* 加载状态 */}
+          {(!imageLoaded.original || !imageLoaded.processed) && !imageError.original && !imageError.processed && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10">
+              <div className="flex items-center gap-2 text-white/50">
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white/70 rounded-full animate-spin" />
+                <span className="text-sm">加载图片中...</span>
+              </div>
+            </div>
+          )}
+
+          {/* 错误状态 */}
+          {(imageError.original || imageError.processed) && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-10">
+              <div className="text-center text-white/70">
+                <p className="text-sm">图片加载失败</p>
+                <p className="text-xs text-white/40 mt-1">请尝试重新处理图片</p>
+              </div>
+            </div>
+          )}
+
           {/* 处理后的图片 */}
           <img
             src={processed}
             alt="Processed"
             className="absolute inset-0 w-full h-full object-contain"
+            onLoad={() => handleImageLoad('processed')}
+            onError={() => handleImageError('processed')}
           />
 
           {/* 原图 */}
@@ -257,8 +291,10 @@ export function CompareView({ original, processed, onClose, onDownload }: Compar
             <img
               src={original}
               alt="Original"
-              className="absolute inset-0 w-full h-full object-contain"
+              className="absolute inset-0 h-full object-contain"
               style={{ width: `${100 / (sliderPosition / 100)}%`, maxWidth: 'none' }}
+              onLoad={() => handleImageLoad('original')}
+              onError={() => handleImageError('original')}
             />
           </div>
 

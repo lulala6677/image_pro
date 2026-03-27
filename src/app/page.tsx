@@ -459,17 +459,35 @@ export default function ImageProcessorPage() {
           const originalImg = new Image();
           const processedImg = new Image();
           
-          await new Promise<void>((resolve) => {
+          await new Promise<void>((resolve, reject) => {
             let loaded = 0;
+            let hasError = false;
             const checkLoaded = () => {
               loaded++;
-              if (loaded === 2) resolve();
+              if (loaded === 2) {
+                if (hasError) {
+                  reject(new Error('图片加载失败'));
+                } else {
+                  resolve();
+                }
+              }
+            };
+            const handleError = (type: string) => {
+              console.error(`${type}图片加载失败`);
+              hasError = true;
+              checkLoaded();
             };
             
             originalImg.onload = checkLoaded;
+            originalImg.onerror = () => handleError('原图');
             processedImg.onload = checkLoaded;
+            processedImg.onerror = () => handleError('处理后图片');
             originalImg.src = sourceImage.dataUrl;
             processedImg.src = result.dataUrl;
+          }).catch(err => {
+            console.error('图片加载错误:', err);
+            // 如果加载失败，使用处理后的结果
+            return;
           });
           
           // 创建画布进行混合
@@ -477,6 +495,10 @@ export default function ImageProcessorPage() {
           canvas.width = result.width;
           canvas.height = result.height;
           const ctx = canvas.getContext('2d')!;
+          
+          // 填充白色背景
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
           
           // 获取原始像素数据
           ctx.drawImage(originalImg, 0, 0);
@@ -487,6 +509,10 @@ export default function ImageProcessorPage() {
           tempCanvas.width = result.width;
           tempCanvas.height = result.height;
           const tempCtx = tempCanvas.getContext('2d')!;
+          
+          // 填充白色背景
+          tempCtx.fillStyle = '#ffffff';
+          tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
           tempCtx.drawImage(processedImg, 0, 0);
           const processedData = tempCtx.getImageData(0, 0, canvas.width, canvas.height);
           
