@@ -179,6 +179,7 @@ interface CompareViewProps {
 }
 
 export function CompareView({ original, processed, onClose, onDownload }: CompareViewProps) {
+  // 初始化滑块位置在 50%，并确保值始终在安全范围内
   const [sliderPosition, setSliderPosition] = useState(50);
   const [isDragging, setIsDragging] = useState(false);
   const [imageLoaded, setImageLoaded] = useState({ original: false, processed: false });
@@ -193,7 +194,8 @@ export function CompareView({ original, processed, onClose, onDownload }: Compar
     
     const rect = containerRef.current.getBoundingClientRect();
     const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
-    const percentage = (x / rect.width) * 100;
+    // 限制滑块位置在 5% - 95% 之间，避免边缘计算问题
+    const percentage = Math.max(5, Math.min(95, (x / rect.width) * 100));
     setSliderPosition(percentage);
   }, [isDragging]);
 
@@ -202,7 +204,8 @@ export function CompareView({ original, processed, onClose, onDownload }: Compar
     
     const rect = containerRef.current.getBoundingClientRect();
     const x = Math.max(0, Math.min(e.touches[0].clientX - rect.left, rect.width));
-    const percentage = (x / rect.width) * 100;
+    // 限制滑块位置在 5% - 95% 之间，避免边缘计算问题
+    const percentage = Math.max(5, Math.min(95, (x / rect.width) * 100));
     setSliderPosition(percentage);
   }, []);
 
@@ -283,16 +286,15 @@ export function CompareView({ original, processed, onClose, onDownload }: Compar
             onError={() => handleImageError('processed')}
           />
 
-          {/* 原图 */}
+          {/* 原图 - 使用 clip-path 裁剪 */}
           <div 
-            className="absolute inset-0 overflow-hidden"
-            style={{ width: `${sliderPosition}%` }}
+            className="absolute inset-0"
+            style={{ clipPath: `inset(0 ${100 - sliderPosition}% 0 0)` }}
           >
             <img
               src={original}
               alt="Original"
-              className="absolute inset-0 h-full object-contain"
-              style={{ width: `${100 / (sliderPosition / 100)}%`, maxWidth: 'none' }}
+              className="absolute inset-0 w-full h-full object-contain"
               onLoad={() => handleImageLoad('original')}
               onError={() => handleImageError('original')}
             />
