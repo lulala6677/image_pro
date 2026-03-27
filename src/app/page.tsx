@@ -663,44 +663,44 @@ export default function ImageProcessorPage() {
         <div
           className="fixed z-[100] pointer-events-none"
           style={{
-            left: pixelColorInfo.screenX + 15,
-            top: pixelColorInfo.screenY + 15,
+            left: pixelColorInfo.screenX + 10,
+            top: pixelColorInfo.screenY + 10,
             transform: 'translateZ(0)',
           }}
         >
-          <div className="bg-black/90 backdrop-blur-xl rounded-lg border border-white/20 shadow-2xl p-3 min-w-[140px]">
+          <div className="bg-black/90 backdrop-blur-xl rounded-md border border-white/20 shadow-xl p-2 min-w-[100px]">
             {/* 颜色预览块 */}
             <div 
-              className="w-full h-10 rounded-md mb-2 border border-white/10"
+              className="w-full h-6 rounded mb-1.5 border border-white/10"
               style={{ backgroundColor: `rgb(${pixelColorInfo.r}, ${pixelColorInfo.g}, ${pixelColorInfo.b})` }}
             />
             
             {/* 坐标 */}
-            <div className="text-[10px] text-white/40 font-mono mb-2">
-              位置: ({pixelColorInfo.x}, {pixelColorInfo.y})
+            <div className="text-[9px] text-white/40 font-mono mb-1.5">
+              ({pixelColorInfo.x}, {pixelColorInfo.y})
             </div>
             
             {/* RGB 值 */}
-            <div className="text-xs text-white/70 font-mono space-y-0.5">
-              <div className="flex justify-between">
-                <span className="text-red-400">R:</span>
+            <div className="text-[10px] text-white/70 font-mono space-y-0.5">
+              <div className="flex justify-between gap-2">
+                <span className="text-red-400">R</span>
                 <span>{pixelColorInfo.r}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-green-400">G:</span>
+              <div className="flex justify-between gap-2">
+                <span className="text-green-400">G</span>
                 <span>{pixelColorInfo.g}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-blue-400">B:</span>
+              <div className="flex justify-between gap-2">
+                <span className="text-blue-400">B</span>
                 <span>{pixelColorInfo.b}</span>
               </div>
             </div>
             
             {/* HEX 值 */}
-            <div className="mt-2 pt-2 border-t border-white/10">
-              <div className="text-xs text-white/70 font-mono flex justify-between items-center">
-                <span className="text-cyan-400">HEX:</span>
-                <span className="bg-white/5 px-1.5 py-0.5 rounded">
+            <div className="mt-1.5 pt-1.5 border-t border-white/10">
+              <div className="text-[10px] text-white/70 font-mono flex justify-between items-center gap-2">
+                <span className="text-cyan-400">HEX</span>
+                <span className="bg-white/5 px-1 py-0.5 rounded text-[9px]">
                   #{pixelColorInfo.r.toString(16).padStart(2, '0').toUpperCase()}
                   {pixelColorInfo.g.toString(16).padStart(2, '0').toUpperCase()}
                   {pixelColorInfo.b.toString(16).padStart(2, '0').toUpperCase()}
