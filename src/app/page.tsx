@@ -900,7 +900,7 @@ export default function ImageProcessorPage() {
                         e.target.value = '';
                       }}
                     />
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-br from-orange-400 via-amber-400 to-orange-500 backdrop-blur-xl border border-orange-300/40 text-white hover:from-orange-300 hover:via-amber-300 hover:to-orange-400 hover:border-orange-200/60 transition-all shadow-lg shadow-orange-500/30">
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-br from-orange-400/50 via-amber-300/40 to-orange-500/50 backdrop-blur-xl border border-white/20 text-white/90 hover:from-orange-400/60 hover:via-amber-400/50 hover:to-orange-500/60 hover:text-white hover:border-white/30 transition-all shadow-lg">
                       <RefreshCw className="h-3.5 w-3.5" />
                       <span className="text-xs font-medium">更换图片</span>
                     </div>
