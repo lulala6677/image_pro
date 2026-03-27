@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Download, Undo2, GitCompareArrows, ZoomIn, ZoomOut, Maximize, Sparkles, RotateCcw } from 'lucide-react';
+import { Download, Undo2, GitCompareArrows, ZoomIn, ZoomOut, Maximize, Sparkles, RotateCcw, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ImageUploader, ImageFile } from '@/components/image-uploader';
@@ -842,7 +842,71 @@ export default function ImageProcessorPage() {
               </div>
 
               {/* 图像显示区 */}
-              <div className="flex-1 min-h-0 overflow-auto flex items-center justify-center p-6">
+              <div className="flex-1 min-h-0 overflow-auto flex items-center justify-center p-6 relative">
+                {/* 更换图片按钮 - 悬浮在右上角 */}
+                {displayImage && (
+                  <label className="absolute top-4 right-4 z-20 cursor-pointer">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          // 重置所有状态
+                          setCurrentImage(null);
+                          setProcessedImage(null);
+                          setHistory([]);
+                          setHistoryIndex(-1);
+                          setSelection(null);
+                          setSelectionOverlay(null);
+                          setPixelColorInfo(null);
+                          setLassoPoints([]);
+                          setShapeStartPoint(null);
+                          setShapeEndPoint(null);
+                          setIsDrawing(false);
+                          
+                          // 加载新图片
+                          const reader = new FileReader();
+                          reader.onload = (event) => {
+                            const dataUrl = event.target?.result as string;
+                            const img = new window.Image();
+                            img.onload = () => {
+                              const imageData: ImageFile = {
+                                id: generateId(),
+                                dataUrl,
+                                width: img.width,
+                                height: img.height,
+                                name: file.name,
+                                file,
+                              };
+                              setCurrentImage(imageData);
+                              setHistory([{
+                                id: imageData.id,
+                                operation: '上传图片',
+                                params: {},
+                                timestamp: Date.now(),
+                                dataUrl: imageData.dataUrl,
+                                width: imageData.width,
+                                height: imageData.height,
+                              }]);
+                              setHistoryIndex(0);
+                            };
+                            img.src = dataUrl;
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                        // 清空 input 以便可以再次选择同一文件
+                        e.target.value = '';
+                      }}
+                    />
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black/60 backdrop-blur-xl border border-white/20 text-white/80 hover:bg-white/20 hover:text-white hover:border-white/40 transition-all shadow-lg">
+                      <RefreshCw className="h-3.5 w-3.5" />
+                      <span className="text-xs font-medium">更换图片</span>
+                    </div>
+                  </label>
+                )}
+                
                 {displayImage ? (
                   <div
                     ref={imageDisplayRef}
