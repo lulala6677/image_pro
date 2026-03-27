@@ -65,6 +65,17 @@ export default function ImageProcessorPage() {
     invert: false,
   });
   
+  // 像素颜色信息显示
+  const [pixelColorInfo, setPixelColorInfo] = useState<{
+    x: number;
+    y: number;
+    r: number;
+    g: number;
+    b: number;
+    screenX: number;
+    screenY: number;
+  } | null>(null);
+  
   // 显示的图像
   const displayImage = processedImage || currentImage;
   
@@ -95,6 +106,13 @@ export default function ImageProcessorPage() {
       setSelectionOverlay(null);
     }
   }, [selection, displayImage]);
+  
+  // 工具切换时隐藏颜色信息
+  useEffect(() => {
+    if (activeTool !== 'wand') {
+      setPixelColorInfo(null);
+    }
+  }, [activeTool]);
   
   // 坐标转换：屏幕坐标 -> 图像坐标
   const screenToImageCoords = useCallback((screenX: number, screenY: number): { x: number; y: number } | null => {
@@ -140,12 +158,22 @@ export default function ImageProcessorPage() {
   }, [displayImage]);
   
   // 魔棒工具点击处理
-  const handleWandClick = useCallback(async (x: number, y: number) => {
+  const handleWandClick = useCallback(async (x: number, y: number, screenX: number, screenY: number) => {
     if (!displayImage) return;
     
     const pixelData = await getImagePixelData();
     if (!pixelData) return;
     
+    // 获取像素颜色
+    const pixelIndex = (y * pixelData.width + x) * 4;
+    const r = pixelData.data[pixelIndex];
+    const g = pixelData.data[pixelIndex + 1];
+    const b = pixelData.data[pixelIndex + 2];
+    
+    // 显示颜色信息
+    setPixelColorInfo({ x, y, r, g, b, screenX, screenY });
+    
+    // 执行魔棒选择
     const newSelection = magicWandSelect(pixelData, x, y, wandParams);
     
     setSelection(newSelection);
@@ -761,7 +789,10 @@ export default function ImageProcessorPage() {
                     onClick={(e) => {
                       if (activeTool === 'wand') {
                         const coords = screenToImageCoords(e.clientX, e.clientY);
-                        if (coords) handleWandClick(coords.x, coords.y);
+                        if (coords) handleWandClick(coords.x, coords.y, e.clientX, e.clientY);
+                      } else {
+                        // 点击其他地方时隐藏颜色信息
+                        setPixelColorInfo(null);
                       }
                     }}
                     onMouseDown={(e) => {
@@ -820,6 +851,58 @@ export default function ImageProcessorPage() {
                           e.currentTarget.style.display = 'none';
                         }}
                       />
+                    )}
+                    
+                    {/* 像素颜色信息显示 */}
+                    {pixelColorInfo && activeTool === 'wand' && (
+                      <div
+                        className="fixed z-50 pointer-events-none animate-in fade-in-0 zoom-in-95 duration-200"
+                        style={{
+                          left: pixelColorInfo.screenX + 15,
+                          top: pixelColorInfo.screenY + 15,
+                        }}
+                      >
+                        <div className="bg-black/90 backdrop-blur-xl rounded-lg border border-white/20 shadow-2xl p-3 min-w-[140px]">
+                          {/* 颜色预览块 */}
+                          <div 
+                            className="w-full h-10 rounded-md mb-2 border border-white/10"
+                            style={{ backgroundColor: `rgb(${pixelColorInfo.r}, ${pixelColorInfo.g}, ${pixelColorInfo.b})` }}
+                          />
+                          
+                          {/* 坐标 */}
+                          <div className="text-[10px] text-white/40 font-mono mb-2">
+                            位置: ({pixelColorInfo.x}, {pixelColorInfo.y})
+                          </div>
+                          
+                          {/* RGB 值 */}
+                          <div className="text-xs text-white/70 font-mono space-y-0.5">
+                            <div className="flex justify-between">
+                              <span className="text-red-400">R:</span>
+                              <span>{pixelColorInfo.r}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-green-400">G:</span>
+                              <span>{pixelColorInfo.g}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-blue-400">B:</span>
+                              <span>{pixelColorInfo.b}</span>
+                            </div>
+                          </div>
+                          
+                          {/* HEX 值 */}
+                          <div className="mt-2 pt-2 border-t border-white/10">
+                            <div className="text-xs text-white/70 font-mono flex justify-between items-center">
+                              <span className="text-cyan-400">HEX:</span>
+                              <span className="bg-white/5 px-1.5 py-0.5 rounded">
+                                #{pixelColorInfo.r.toString(16).padStart(2, '0').toUpperCase()}
+                                {pixelColorInfo.g.toString(16).padStart(2, '0').toUpperCase()}
+                                {pixelColorInfo.b.toString(16).padStart(2, '0').toUpperCase()}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     )}
                     
                     {/* 套索绘制路径 */}
