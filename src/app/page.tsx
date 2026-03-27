@@ -843,9 +843,9 @@ export default function ImageProcessorPage() {
 
               {/* 图像显示区 */}
               <div className="flex-1 min-h-0 overflow-auto flex items-center justify-center p-6 relative">
-                {/* 更换图片按钮 - 悬浮在右上角 */}
+                {/* 更换图片按钮 - 从左侧滑入动画 */}
                 {displayImage && (
-                  <label className="absolute top-4 right-4 z-20 cursor-pointer">
+                  <label className="absolute top-4 right-4 z-20 cursor-pointer animate-replace-button">
                     <input
                       type="file"
                       accept="image/*"
@@ -900,7 +900,7 @@ export default function ImageProcessorPage() {
                         e.target.value = '';
                       }}
                     />
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black/60 backdrop-blur-xl border border-white/20 text-white/80 hover:bg-white/20 hover:text-white hover:border-white/40 transition-all shadow-lg">
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-orange-500/80 via-yellow-500/80 to-cyan-500/80 backdrop-blur-xl border border-white/30 text-white hover:from-orange-400 hover:via-yellow-400 hover:to-cyan-400 hover:border-white/50 transition-all shadow-lg shadow-orange-500/20">
                       <RefreshCw className="h-3.5 w-3.5" />
                       <span className="text-xs font-medium">更换图片</span>
                     </div>
