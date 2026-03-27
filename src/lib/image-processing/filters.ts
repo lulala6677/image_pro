@@ -5,6 +5,7 @@ import type {
   GaussianNoiseParams,
   ProcessImageData 
 } from './types';
+import { processImageDataToCanvas, canvasToProcessImageData } from './utils';
 
 /**
  * 添加椒盐噪声
@@ -13,19 +14,11 @@ export function addSaltPepperNoise(
   imageData: ProcessImageData,
   params: SaltPepperParams
 ): ProcessImageData {
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d')!;
-  
-  const img = new Image();
-  img.src = imageData.dataUrl;
-  
-  canvas.width = imageData.width;
-  canvas.height = imageData.height;
-  ctx.drawImage(img, 0, 0);
-  
-  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const { canvas, ctx, imgData } = processImageDataToCanvas(imageData);
   const data = imgData.data;
-  const totalPixels = data.length / 4;
+  const width = canvas.width;
+  const height = canvas.height;
+  const totalPixels = width * height;
   
   const saltCount = Math.floor(totalPixels * params.saltProb);
   const pepperCount = Math.floor(totalPixels * params.pepperProb);
@@ -48,10 +41,7 @@ export function addSaltPepperNoise(
   
   ctx.putImageData(imgData, 0, 0);
   
-  return {
-    ...imageData,
-    dataUrl: canvas.toDataURL()
-  };
+  return canvasToProcessImageData(canvas, imageData);
 }
 
 /**
@@ -61,17 +51,7 @@ export function addGaussianNoise(
   imageData: ProcessImageData,
   params: GaussianNoiseParams
 ): ProcessImageData {
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d')!;
-  
-  const img = new Image();
-  img.src = imageData.dataUrl;
-  
-  canvas.width = imageData.width;
-  canvas.height = imageData.height;
-  ctx.drawImage(img, 0, 0);
-  
-  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const { canvas, ctx, imgData } = processImageDataToCanvas(imageData);
   const data = imgData.data;
   
   // Box-Muller变换生成高斯随机数
@@ -91,10 +71,7 @@ export function addGaussianNoise(
   
   ctx.putImageData(imgData, 0, 0);
   
-  return {
-    ...imageData,
-    dataUrl: canvas.toDataURL()
-  };
+  return canvasToProcessImageData(canvas, imageData);
 }
 
 /**
@@ -104,17 +81,7 @@ export function gaussianBlur(
   imageData: ProcessImageData,
   params: { radius: number; sigma?: number }
 ): ProcessImageData {
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d')!;
-  
-  const img = new Image();
-  img.src = imageData.dataUrl;
-  
-  canvas.width = imageData.width;
-  canvas.height = imageData.height;
-  ctx.drawImage(img, 0, 0);
-  
-  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const { canvas, ctx, imgData } = processImageDataToCanvas(imageData);
   const data = imgData.data;
   const width = canvas.width;
   const height = canvas.height;
@@ -174,10 +141,7 @@ export function gaussianBlur(
   const outputData = new ImageData(output, width, height);
   ctx.putImageData(outputData, 0, 0);
   
-  return {
-    ...imageData,
-    dataUrl: canvas.toDataURL()
-  };
+  return canvasToProcessImageData(canvas, imageData);
 }
 
 /**
@@ -187,17 +151,7 @@ export function medianFilter(
   imageData: ProcessImageData,
   params: { kernelSize: number }
 ): ProcessImageData {
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d')!;
-  
-  const img = new Image();
-  img.src = imageData.dataUrl;
-  
-  canvas.width = imageData.width;
-  canvas.height = imageData.height;
-  ctx.drawImage(img, 0, 0);
-  
-  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const { canvas, ctx, imgData } = processImageDataToCanvas(imageData);
   const data = imgData.data;
   const width = canvas.width;
   const height = canvas.height;
@@ -240,10 +194,7 @@ export function medianFilter(
   const outputData = new ImageData(output, width, height);
   ctx.putImageData(outputData, 0, 0);
   
-  return {
-    ...imageData,
-    dataUrl: canvas.toDataURL()
-  };
+  return canvasToProcessImageData(canvas, imageData);
 }
 
 /**
@@ -253,17 +204,7 @@ export function meanFilter(
   imageData: ProcessImageData,
   params: { kernelSize: number }
 ): ProcessImageData {
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d')!;
-  
-  const img = new Image();
-  img.src = imageData.dataUrl;
-  
-  canvas.width = imageData.width;
-  canvas.height = imageData.height;
-  ctx.drawImage(img, 0, 0);
-  
-  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const { canvas, ctx, imgData } = processImageDataToCanvas(imageData);
   const data = imgData.data;
   const width = canvas.width;
   const height = canvas.height;
@@ -300,10 +241,7 @@ export function meanFilter(
   const outputData = new ImageData(output, width, height);
   ctx.putImageData(outputData, 0, 0);
   
-  return {
-    ...imageData,
-    dataUrl: canvas.toDataURL()
-  };
+  return canvasToProcessImageData(canvas, imageData);
 }
 
 /**
@@ -313,17 +251,7 @@ export function motionBlur(
   imageData: ProcessImageData,
   params: { distance: number; angle: number }
 ): ProcessImageData {
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d')!;
-  
-  const img = new Image();
-  img.src = imageData.dataUrl;
-  
-  canvas.width = imageData.width;
-  canvas.height = imageData.height;
-  ctx.drawImage(img, 0, 0);
-  
-  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const { canvas, ctx, imgData } = processImageDataToCanvas(imageData);
   const data = imgData.data;
   const width = canvas.width;
   const height = canvas.height;
@@ -362,10 +290,7 @@ export function motionBlur(
   const outputData = new ImageData(output, width, height);
   ctx.putImageData(outputData, 0, 0);
   
-  return {
-    ...imageData,
-    dataUrl: canvas.toDataURL()
-  };
+  return canvasToProcessImageData(canvas, imageData);
 }
 
 /**
@@ -375,17 +300,7 @@ export function sharpenFilter(
   imageData: ProcessImageData,
   params: { type: string; strength: number }
 ): ProcessImageData {
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d')!;
-  
-  const img = new Image();
-  img.src = imageData.dataUrl;
-  
-  canvas.width = imageData.width;
-  canvas.height = imageData.height;
-  ctx.drawImage(img, 0, 0);
-  
-  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const { canvas, ctx, imgData } = processImageDataToCanvas(imageData);
   const data = imgData.data;
   const width = canvas.width;
   const height = canvas.height;
@@ -452,10 +367,7 @@ export function sharpenFilter(
   const outputData = new ImageData(output, width, height);
   ctx.putImageData(outputData, 0, 0);
   
-  return {
-    ...imageData,
-    dataUrl: canvas.toDataURL()
-  };
+  return canvasToProcessImageData(canvas, imageData);
 }
 
 /**
@@ -465,17 +377,7 @@ export function bilateralFilter(
   imageData: ProcessImageData,
   params: { kernelSize: number; sigmaSpace: number; sigmaColor: number }
 ): ProcessImageData {
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d')!;
-  
-  const img = new Image();
-  img.src = imageData.dataUrl;
-  
-  canvas.width = imageData.width;
-  canvas.height = imageData.height;
-  ctx.drawImage(img, 0, 0);
-  
-  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const { canvas, ctx, imgData } = processImageDataToCanvas(imageData);
   const data = imgData.data;
   const width = canvas.width;
   const height = canvas.height;
@@ -533,8 +435,5 @@ export function bilateralFilter(
   const outputData = new ImageData(output, width, height);
   ctx.putImageData(outputData, 0, 0);
   
-  return {
-    ...imageData,
-    dataUrl: canvas.toDataURL()
-  };
+  return canvasToProcessImageData(canvas, imageData);
 }

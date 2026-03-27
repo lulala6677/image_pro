@@ -1,6 +1,7 @@
 // 几何变换处理函数
 
 import type { ResizeParams, RotateParams, FlipParams, TranslateParams, CropParams, ProcessImageData } from './types';
+import { createImageFromDataUrl, canvasToProcessImageData } from './utils';
 
 /**
  * 缩放图像
@@ -9,11 +10,7 @@ export function resize(
   imageData: ProcessImageData,
   params: ResizeParams
 ): ProcessImageData {
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d')!;
-  
-  const img = new Image();
-  img.src = imageData.dataUrl;
+  const img = createImageFromDataUrl(imageData.dataUrl);
   
   let newWidth: number, newHeight: number;
   
@@ -26,17 +23,18 @@ export function resize(
     newHeight = imageData.height * params.scaleY;
   }
   
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d')!;
   canvas.width = Math.max(1, Math.round(newWidth));
   canvas.height = Math.max(1, Math.round(newHeight));
   
+  // 填充白色背景
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
   ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
   
-  return {
-    ...imageData,
-    dataUrl: canvas.toDataURL(),
-    width: canvas.width,
-    height: canvas.height
-  };
+  return canvasToProcessImageData(canvas, imageData);
 }
 
 /**
@@ -46,11 +44,7 @@ export function rotate(
   imageData: ProcessImageData,
   params: RotateParams
 ): ProcessImageData {
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d')!;
-  
-  const img = new Image();
-  img.src = imageData.dataUrl;
+  const img = createImageFromDataUrl(imageData.dataUrl);
   
   const radians = (params.angle * Math.PI) / 180;
   const sin = Math.abs(Math.sin(radians));
@@ -60,19 +54,20 @@ export function rotate(
   const newWidth = imageData.width * cos + imageData.height * sin;
   const newHeight = imageData.width * sin + imageData.height * cos;
   
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d')!;
   canvas.width = Math.max(1, Math.round(newWidth));
   canvas.height = Math.max(1, Math.round(newHeight));
+  
+  // 填充背景色
+  ctx.fillStyle = params.fillColor || '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
   
   ctx.translate(canvas.width / 2, canvas.height / 2);
   ctx.rotate(radians);
   ctx.drawImage(img, -imageData.width / 2, -imageData.height / 2);
   
-  return {
-    ...imageData,
-    dataUrl: canvas.toDataURL(),
-    width: canvas.width,
-    height: canvas.height
-  };
+  return canvasToProcessImageData(canvas, imageData);
 }
 
 /**
@@ -82,14 +77,16 @@ export function flip(
   imageData: ProcessImageData,
   params: FlipParams
 ): ProcessImageData {
+  const img = createImageFromDataUrl(imageData.dataUrl);
+  
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d')!;
-  
-  const img = new Image();
-  img.src = imageData.dataUrl;
-  
   canvas.width = imageData.width;
   canvas.height = imageData.height;
+  
+  // 填充白色背景
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
   
   ctx.save();
   
@@ -104,10 +101,7 @@ export function flip(
   ctx.drawImage(img, 0, 0);
   ctx.restore();
   
-  return {
-    ...imageData,
-    dataUrl: canvas.toDataURL()
-  };
+  return canvasToProcessImageData(canvas, imageData);
 }
 
 /**
@@ -117,12 +111,10 @@ export function translate(
   imageData: ProcessImageData,
   params: TranslateParams
 ): ProcessImageData {
+  const img = createImageFromDataUrl(imageData.dataUrl);
+  
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d')!;
-  
-  const img = new Image();
-  img.src = imageData.dataUrl;
-  
   canvas.width = imageData.width;
   canvas.height = imageData.height;
   
@@ -133,10 +125,7 @@ export function translate(
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(img, offsetX, offsetY);
   
-  return {
-    ...imageData,
-    dataUrl: canvas.toDataURL()
-  };
+  return canvasToProcessImageData(canvas, imageData);
 }
 
 /**
@@ -146,14 +135,16 @@ export function crop(
   imageData: ProcessImageData,
   params: CropParams
 ): ProcessImageData {
+  const img = createImageFromDataUrl(imageData.dataUrl);
+  
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d')!;
-  
-  const img = new Image();
-  img.src = imageData.dataUrl;
-  
   canvas.width = Math.max(1, params.width);
   canvas.height = Math.max(1, params.height);
+  
+  // 填充白色背景
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
   
   ctx.drawImage(
     img,
@@ -161,10 +152,5 @@ export function crop(
     0, 0, params.width, params.height
   );
   
-  return {
-    ...imageData,
-    dataUrl: canvas.toDataURL(),
-    width: canvas.width,
-    height: canvas.height
-  };
+  return canvasToProcessImageData(canvas, imageData);
 }

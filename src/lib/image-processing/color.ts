@@ -1,6 +1,7 @@
 // 颜色调整和分割处理函数
 
 import type { ColorAdjustParams, HSIParams, ThresholdParams, RegionGrowParams, ProcessImageData, RGB, HSI } from './types';
+import { processImageDataToCanvas, canvasToProcessImageData } from './utils';
 
 /**
  * RGB转HSI
@@ -78,17 +79,7 @@ export function rgbToHsiImage(
   imageData: ProcessImageData,
   params: HSIParams
 ): ProcessImageData {
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d')!;
-  
-  const img = new Image();
-  img.src = imageData.dataUrl;
-  
-  canvas.width = imageData.width;
-  canvas.height = imageData.height;
-  ctx.drawImage(img, 0, 0);
-  
-  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const { canvas, ctx, imgData } = processImageDataToCanvas(imageData);
   const data = imgData.data;
   
   for (let i = 0; i < data.length; i += 4) {
@@ -123,10 +114,7 @@ export function rgbToHsiImage(
   
   ctx.putImageData(imgData, 0, 0);
   
-  return {
-    ...imageData,
-    dataUrl: canvas.toDataURL()
-  };
+  return canvasToProcessImageData(canvas, imageData);
 }
 
 /**
@@ -136,17 +124,7 @@ export function adjustColor(
   imageData: ProcessImageData,
   params: ColorAdjustParams
 ): ProcessImageData {
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d')!;
-  
-  const img = new Image();
-  img.src = imageData.dataUrl;
-  
-  canvas.width = imageData.width;
-  canvas.height = imageData.height;
-  ctx.drawImage(img, 0, 0);
-  
-  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const { canvas, ctx, imgData } = processImageDataToCanvas(imageData);
   const data = imgData.data;
   
   const brightness = params.brightness;
@@ -185,10 +163,7 @@ export function adjustColor(
   
   ctx.putImageData(imgData, 0, 0);
   
-  return {
-    ...imageData,
-    dataUrl: canvas.toDataURL()
-  };
+  return canvasToProcessImageData(canvas, imageData);
 }
 
 /**
@@ -198,17 +173,7 @@ export function hueRotate(
   imageData: ProcessImageData,
   angle: number
 ): ProcessImageData {
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d')!;
-  
-  const img = new Image();
-  img.src = imageData.dataUrl;
-  
-  canvas.width = imageData.width;
-  canvas.height = imageData.height;
-  ctx.drawImage(img, 0, 0);
-  
-  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const { canvas, ctx, imgData } = processImageDataToCanvas(imageData);
   const data = imgData.data;
   
   for (let i = 0; i < data.length; i += 4) {
@@ -224,10 +189,7 @@ export function hueRotate(
   
   ctx.putImageData(imgData, 0, 0);
   
-  return {
-    ...imageData,
-    dataUrl: canvas.toDataURL()
-  };
+  return canvasToProcessImageData(canvas, imageData);
 }
 
 /**
@@ -237,17 +199,7 @@ export function globalThreshold(
   imageData: ProcessImageData,
   threshold: number = 128
 ): ProcessImageData {
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d')!;
-  
-  const img = new Image();
-  img.src = imageData.dataUrl;
-  
-  canvas.width = imageData.width;
-  canvas.height = imageData.height;
-  ctx.drawImage(img, 0, 0);
-  
-  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const { canvas, ctx, imgData } = processImageDataToCanvas(imageData);
   const data = imgData.data;
   
   for (let i = 0; i < data.length; i += 4) {
@@ -260,27 +212,14 @@ export function globalThreshold(
   
   ctx.putImageData(imgData, 0, 0);
   
-  return {
-    ...imageData,
-    dataUrl: canvas.toDataURL()
-  };
+  return canvasToProcessImageData(canvas, imageData);
 }
 
 /**
  * Otsu阈值分割
  */
 export function otsuThreshold(imageData: ProcessImageData): ProcessImageData {
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d')!;
-  
-  const img = new Image();
-  img.src = imageData.dataUrl;
-  
-  canvas.width = imageData.width;
-  canvas.height = imageData.height;
-  ctx.drawImage(img, 0, 0);
-  
-  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const { canvas, ctx, imgData } = processImageDataToCanvas(imageData);
   const data = imgData.data;
   const totalPixels = data.length / 4;
   
@@ -333,10 +272,7 @@ export function otsuThreshold(imageData: ProcessImageData): ProcessImageData {
   
   ctx.putImageData(imgData, 0, 0);
   
-  return {
-    ...imageData,
-    dataUrl: canvas.toDataURL()
-  };
+  return canvasToProcessImageData(canvas, imageData);
 }
 
 /**
@@ -347,17 +283,7 @@ export function adaptiveThreshold(
   blockSize: number = 11,
   c: number = 2
 ): ProcessImageData {
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d')!;
-  
-  const img = new Image();
-  img.src = imageData.dataUrl;
-  
-  canvas.width = imageData.width;
-  canvas.height = imageData.height;
-  ctx.drawImage(img, 0, 0);
-  
-  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const { canvas, ctx, imgData } = processImageDataToCanvas(imageData);
   const data = imgData.data;
   const width = canvas.width;
   const height = canvas.height;
@@ -402,10 +328,7 @@ export function adaptiveThreshold(
   const outputData = new ImageData(output, width, height);
   ctx.putImageData(outputData, 0, 0);
   
-  return {
-    ...imageData,
-    dataUrl: canvas.toDataURL()
-  };
+  return canvasToProcessImageData(canvas, imageData);
 }
 
 /**
@@ -415,17 +338,7 @@ export function regionGrowing(
   imageData: ProcessImageData,
   params: RegionGrowParams
 ): ProcessImageData {
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d')!;
-  
-  const img = new Image();
-  img.src = imageData.dataUrl;
-  
-  canvas.width = imageData.width;
-  canvas.height = imageData.height;
-  ctx.drawImage(img, 0, 0);
-  
-  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const { canvas, ctx, imgData } = processImageDataToCanvas(imageData);
   const data = imgData.data;
   const width = canvas.width;
   const height = canvas.height;
@@ -487,10 +400,7 @@ export function regionGrowing(
   const outputData = new ImageData(output, width, height);
   ctx.putImageData(outputData, 0, 0);
   
-  return {
-    ...imageData,
-    dataUrl: canvas.toDataURL()
-  };
+  return canvasToProcessImageData(canvas, imageData);
 }
 
 /**

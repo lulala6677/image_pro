@@ -1,6 +1,7 @@
 // 边缘检测和频域处理函数
 
 import type { EdgeParams, ProcessImageData } from './types';
+import { processImageDataToCanvas, canvasToProcessImageData } from './utils';
 
 /**
  * Sobel边缘检测
@@ -9,17 +10,7 @@ export function sobelEdgeDetection(
   imageData: ProcessImageData,
   params?: { threshold?: number }
 ): ProcessImageData {
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d')!;
-  
-  const img = new Image();
-  img.src = imageData.dataUrl;
-  
-  canvas.width = imageData.width;
-  canvas.height = imageData.height;
-  ctx.drawImage(img, 0, 0);
-  
-  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const { canvas, ctx, imgData } = processImageDataToCanvas(imageData);
   const data = imgData.data;
   const width = canvas.width;
   const height = canvas.height;
@@ -63,10 +54,7 @@ export function sobelEdgeDetection(
   const outputData = new ImageData(output, width, height);
   ctx.putImageData(outputData, 0, 0);
   
-  return {
-    ...imageData,
-    dataUrl: canvas.toDataURL()
-  };
+  return canvasToProcessImageData(canvas, imageData);
 }
 
 /**
@@ -76,17 +64,7 @@ export function laplacianEdgeDetection(
   imageData: ProcessImageData,
   params?: { threshold?: number }
 ): ProcessImageData {
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d')!;
-  
-  const img = new Image();
-  img.src = imageData.dataUrl;
-  
-  canvas.width = imageData.width;
-  canvas.height = imageData.height;
-  ctx.drawImage(img, 0, 0);
-  
-  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const { canvas, ctx, imgData } = processImageDataToCanvas(imageData);
   const data = imgData.data;
   const width = canvas.width;
   const height = canvas.height;
@@ -128,10 +106,7 @@ export function laplacianEdgeDetection(
   const outputData = new ImageData(output, width, height);
   ctx.putImageData(outputData, 0, 0);
   
-  return {
-    ...imageData,
-    dataUrl: canvas.toDataURL()
-  };
+  return canvasToProcessImageData(canvas, imageData);
 }
 
 /**
@@ -141,17 +116,7 @@ export function prewittEdgeDetection(
   imageData: ProcessImageData,
   params?: { threshold?: number }
 ): ProcessImageData {
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d')!;
-  
-  const img = new Image();
-  img.src = imageData.dataUrl;
-  
-  canvas.width = imageData.width;
-  canvas.height = imageData.height;
-  ctx.drawImage(img, 0, 0);
-  
-  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const { canvas, ctx, imgData } = processImageDataToCanvas(imageData);
   const data = imgData.data;
   const width = canvas.width;
   const height = canvas.height;
@@ -193,10 +158,7 @@ export function prewittEdgeDetection(
   const outputData = new ImageData(output, width, height);
   ctx.putImageData(outputData, 0, 0);
   
-  return {
-    ...imageData,
-    dataUrl: canvas.toDataURL()
-  };
+  return canvasToProcessImageData(canvas, imageData);
 }
 
 /**
@@ -206,17 +168,7 @@ export function robertsEdgeDetection(
   imageData: ProcessImageData,
   params?: { threshold?: number }
 ): ProcessImageData {
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d')!;
-  
-  const img = new Image();
-  img.src = imageData.dataUrl;
-  
-  canvas.width = imageData.width;
-  canvas.height = imageData.height;
-  ctx.drawImage(img, 0, 0);
-  
-  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const { canvas, ctx, imgData } = processImageDataToCanvas(imageData);
   const data = imgData.data;
   const width = canvas.width;
   const height = canvas.height;
@@ -248,10 +200,7 @@ export function robertsEdgeDetection(
   const outputData = new ImageData(output, width, height);
   ctx.putImageData(outputData, 0, 0);
   
-  return {
-    ...imageData,
-    dataUrl: canvas.toDataURL()
-  };
+  return canvasToProcessImageData(canvas, imageData);
 }
 
 /**
@@ -261,17 +210,7 @@ export function logEdgeDetection(
   imageData: ProcessImageData,
   params?: { sigma?: number; threshold?: number }
 ): ProcessImageData {
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d')!;
-  
-  const img = new Image();
-  img.src = imageData.dataUrl;
-  
-  canvas.width = imageData.width;
-  canvas.height = imageData.height;
-  ctx.drawImage(img, 0, 0);
-  
-  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const { canvas, ctx, imgData } = processImageDataToCanvas(imageData);
   const data = imgData.data;
   const width = canvas.width;
   const height = canvas.height;
@@ -325,10 +264,7 @@ export function logEdgeDetection(
   const outputData = new ImageData(output, width, height);
   ctx.putImageData(outputData, 0, 0);
   
-  return {
-    ...imageData,
-    dataUrl: canvas.toDataURL()
-  };
+  return canvasToProcessImageData(canvas, imageData);
 }
 
 /**
@@ -338,17 +274,7 @@ export function cannyEdgeDetection(
   imageData: ProcessImageData,
   params?: { lowThreshold?: number; highThreshold?: number }
 ): ProcessImageData {
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d')!;
-  
-  const img = new Image();
-  img.src = imageData.dataUrl;
-  
-  canvas.width = imageData.width;
-  canvas.height = imageData.height;
-  ctx.drawImage(img, 0, 0);
-  
-  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const { canvas, ctx, imgData } = processImageDataToCanvas(imageData);
   const data = imgData.data;
   const width = canvas.width;
   const height = canvas.height;
@@ -484,10 +410,7 @@ export function cannyEdgeDetection(
   const outputData = new ImageData(output, width, height);
   ctx.putImageData(outputData, 0, 0);
   
-  return {
-    ...imageData,
-    dataUrl: canvas.toDataURL()
-  };
+  return canvasToProcessImageData(canvas, imageData);
 }
 
 /**

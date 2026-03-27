@@ -1,34 +1,13 @@
 // 灰度变换处理函数
 
 import type { GammaParams, LinearTransformParams, ProcessImageData } from './types';
-
-/**
- * 辅助函数：创建带图片的 canvas
- */
-function createCanvasWithImage(dataUrl: string, width: number, height: number): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D; imgData: ImageData } {
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d')!;
-  canvas.width = width;
-  canvas.height = height;
-  
-  // 填充白色背景，防止透明区域显示异常
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, width, height);
-  
-  const img = new Image();
-  img.src = dataUrl;
-  ctx.drawImage(img, 0, 0, width, height);
-  
-  const imgData = ctx.getImageData(0, 0, width, height);
-  
-  return { canvas, ctx, imgData };
-}
+import { processImageDataToCanvas, canvasToProcessImageData } from './utils';
 
 /**
  * 对数变换 - 增强暗部细节
  */
 export function logarithmicTransform(imageData: ProcessImageData): ProcessImageData {
-  const { canvas, ctx, imgData } = createCanvasWithImage(imageData.dataUrl, imageData.width, imageData.height);
+  const { canvas, ctx, imgData } = processImageDataToCanvas(imageData);
   const data = imgData.data;
   
   // 找最大值用于归一化
@@ -51,17 +30,14 @@ export function logarithmicTransform(imageData: ProcessImageData): ProcessImageD
   
   ctx.putImageData(imgData, 0, 0);
   
-  return {
-    ...imageData,
-    dataUrl: canvas.toDataURL()
-  };
+  return canvasToProcessImageData(canvas, imageData);
 }
 
 /**
  * 反色变换
  */
 export function inverseTransform(imageData: ProcessImageData): ProcessImageData {
-  const { canvas, ctx, imgData } = createCanvasWithImage(imageData.dataUrl, imageData.width, imageData.height);
+  const { canvas, ctx, imgData } = processImageDataToCanvas(imageData);
   const data = imgData.data;
   
   for (let i = 0; i < data.length; i += 4) {
@@ -72,10 +48,7 @@ export function inverseTransform(imageData: ProcessImageData): ProcessImageData 
   
   ctx.putImageData(imgData, 0, 0);
   
-  return {
-    ...imageData,
-    dataUrl: canvas.toDataURL()
-  };
+  return canvasToProcessImageData(canvas, imageData);
 }
 
 /**
@@ -85,7 +58,7 @@ export function gammaTransform(
   imageData: ProcessImageData,
   params: GammaParams
 ): ProcessImageData {
-  const { canvas, ctx, imgData } = createCanvasWithImage(imageData.dataUrl, imageData.width, imageData.height);
+  const { canvas, ctx, imgData } = processImageDataToCanvas(imageData);
   const data = imgData.data;
   const gamma = params.gamma;
   
@@ -97,17 +70,14 @@ export function gammaTransform(
   
   ctx.putImageData(imgData, 0, 0);
   
-  return {
-    ...imageData,
-    dataUrl: canvas.toDataURL()
-  };
+  return canvasToProcessImageData(canvas, imageData);
 }
 
 /**
  * 直方图均衡化
  */
 export function histogramEqualization(imageData: ProcessImageData): ProcessImageData {
-  const { canvas, ctx, imgData } = createCanvasWithImage(imageData.dataUrl, imageData.width, imageData.height);
+  const { canvas, ctx, imgData } = processImageDataToCanvas(imageData);
   const data = imgData.data;
   const totalPixels = data.length / 4;
   
@@ -154,10 +124,7 @@ export function histogramEqualization(imageData: ProcessImageData): ProcessImage
   
   ctx.putImageData(imgData, 0, 0);
   
-  return {
-    ...imageData,
-    dataUrl: canvas.toDataURL()
-  };
+  return canvasToProcessImageData(canvas, imageData);
 }
 
 /**
@@ -167,7 +134,7 @@ export function linearTransform(
   imageData: ProcessImageData,
   params: LinearTransformParams
 ): ProcessImageData {
-  const { canvas, ctx, imgData } = createCanvasWithImage(imageData.dataUrl, imageData.width, imageData.height);
+  const { canvas, ctx, imgData } = processImageDataToCanvas(imageData);
   const data = imgData.data;
   const { a, b, c, d } = params;
   
@@ -192,17 +159,14 @@ export function linearTransform(
   
   ctx.putImageData(imgData, 0, 0);
   
-  return {
-    ...imageData,
-    dataUrl: canvas.toDataURL()
-  };
+  return canvasToProcessImageData(canvas, imageData);
 }
 
 /**
  * 对比度拉伸
  */
 export function contrastStretch(imageData: ProcessImageData): ProcessImageData {
-  const { canvas, ctx, imgData } = createCanvasWithImage(imageData.dataUrl, imageData.width, imageData.height);
+  const { canvas, ctx, imgData } = processImageDataToCanvas(imageData);
   const data = imgData.data;
   
   // 找到每个通道的最小和最大值
@@ -227,17 +191,14 @@ export function contrastStretch(imageData: ProcessImageData): ProcessImageData {
   
   ctx.putImageData(imgData, 0, 0);
   
-  return {
-    ...imageData,
-    dataUrl: canvas.toDataURL()
-  };
+  return canvasToProcessImageData(canvas, imageData);
 }
 
 /**
  * 转灰度图
  */
 export function toGrayscale(imageData: ProcessImageData): ProcessImageData {
-  const { canvas, ctx, imgData } = createCanvasWithImage(imageData.dataUrl, imageData.width, imageData.height);
+  const { canvas, ctx, imgData } = processImageDataToCanvas(imageData);
   const data = imgData.data;
   
   for (let i = 0; i < data.length; i += 4) {
@@ -249,17 +210,14 @@ export function toGrayscale(imageData: ProcessImageData): ProcessImageData {
   
   ctx.putImageData(imgData, 0, 0);
   
-  return {
-    ...imageData,
-    dataUrl: canvas.toDataURL()
-  };
+  return canvasToProcessImageData(canvas, imageData);
 }
 
 /**
  * 二值化
  */
 export function binary(imageData: ProcessImageData, threshold: number = 128): ProcessImageData {
-  const { canvas, ctx, imgData } = createCanvasWithImage(imageData.dataUrl, imageData.width, imageData.height);
+  const { canvas, ctx, imgData } = processImageDataToCanvas(imageData);
   const data = imgData.data;
   
   for (let i = 0; i < data.length; i += 4) {
@@ -272,17 +230,14 @@ export function binary(imageData: ProcessImageData, threshold: number = 128): Pr
   
   ctx.putImageData(imgData, 0, 0);
   
-  return {
-    ...imageData,
-    dataUrl: canvas.toDataURL()
-  };
+  return canvasToProcessImageData(canvas, imageData);
 }
 
 /**
  * 获取直方图数据
  */
 export function getHistogram(imageData: ProcessImageData): { r: number[]; g: number[]; b: number[]; gray: number[] } {
-  const { imgData } = createCanvasWithImage(imageData.dataUrl, imageData.width, imageData.height);
+  const { imgData } = processImageDataToCanvas(imageData);
   const data = imgData.data;
   
   const r = new Array(256).fill(0);
