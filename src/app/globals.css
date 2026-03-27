@@ -282,33 +282,62 @@ body {
   animation: reveal 1s ease-out forwards;
 }
 
-/* 更换图片按钮动画 - 从中间滑动到右上角 */
+/* 更换图片按钮动画 - 从中间滑动到右上角（完整弧线轨迹） */
 @keyframes replace-button {
   0% {
-    /* 起始位置：图片预览区域中心 */
+    /* 起始位置：图片预览区域中心，放大显示 */
     left: 50%;
     top: 50%;
-    transform: translate(-50%, -50%) scale(1.3);
+    right: auto;
+    transform: translate(-50%, -50%) scale(1.4);
     opacity: 0;
   }
-  15% {
+  10% {
+    /* 完全显示 */
     opacity: 1;
   }
-  70% {
-    /* 中间过渡：缩小并向右上移动 */
-    transform: translate(30%, -120%) scale(0.85);
+  25% {
+    /* 向右上方移动第一步 - 带有弧线 */
+    left: 55%;
+    top: 45%;
+    right: auto;
+    transform: translate(-50%, -50%) scale(1.2);
+    opacity: 1;
+  }
+  50% {
+    /* 继续向右上移动 - 缩小过程中 */
+    left: 65%;
+    top: 35%;
+    right: auto;
+    transform: translate(-50%, -50%) scale(1.0);
+    opacity: 1;
+  }
+  75% {
+    /* 接近目标位置 */
+    left: 75%;
+    top: 25%;
+    right: auto;
+    transform: translate(-50%, -50%) scale(0.95);
+    opacity: 1;
+  }
+  90% {
+    /* 几乎到达 */
+    right: 24px;
+    top: 24px;
+    left: auto;
+    transform: translate(0, 0) scale(1.02);
     opacity: 1;
   }
   100% {
     /* 最终位置：右上角 */
-    left: auto;
     right: 16px;
     top: 16px;
+    left: auto;
     transform: translate(0, 0) scale(1);
     opacity: 1;
   }
 }
 
 .animate-replace-button {
-  animation: replace-button 0.85s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: replace-button 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
 }
