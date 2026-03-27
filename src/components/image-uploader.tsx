@@ -1,9 +1,10 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { Upload, X, Image as ImageIcon, Sparkles } from 'lucide-react';
+import { Upload, X, Image as ImageIcon, Sparkles, Camera } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { ImageSourceDialog } from './image-source-dialog';
 
 export interface ImageFile {
   id: string;
@@ -23,6 +24,7 @@ interface ImageUploaderProps {
 export function ImageUploader({ onImageLoad, currentImage, onClear }: ImageUploaderProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showSourceDialog, setShowSourceDialog] = useState(false);
 
   const loadImage = useCallback((file: File) => {
     setIsLoading(true);
@@ -56,6 +58,17 @@ export function ImageUploader({ onImageLoad, currentImage, onClear }: ImageUploa
     reader.readAsDataURL(file);
   }, [onImageLoad]);
 
+  // 处理从弹窗捕获的图片（拍摄或导入）
+  const handleImageCapture = useCallback((dataUrl: string, width: number, height: number) => {
+    onImageLoad({
+      id: `img-${Date.now()}`,
+      name: `photo-${Date.now()}.jpg`,
+      dataUrl,
+      width,
+      height,
+    });
+  }, [onImageLoad]);
+
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
@@ -77,13 +90,6 @@ export function ImageUploader({ onImageLoad, currentImage, onClear }: ImageUploa
     e.preventDefault();
     setIsDragging(false);
   }, []);
-
-  const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      loadImage(file);
-    }
-  }, [loadImage]);
 
   if (currentImage) {
     return (
@@ -123,73 +129,74 @@ export function ImageUploader({ onImageLoad, currentImage, onClear }: ImageUploa
   }
 
   return (
-    <div
-      className={cn(
-        "relative group cursor-pointer",
-        "w-full max-w-[400px]",
-        "rounded-2xl overflow-hidden",
-        "transition-all duration-300",
-        isDragging && "scale-[1.02]"
-      )}
-      onDrop={handleDrop}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onClick={() => document.getElementById('file-input')?.click()}
-    >
-      {/* 背景 */}
-      <div className={cn(
-        "absolute inset-0",
-        "backdrop-blur-xl border-2 border-dashed transition-all duration-300",
-        isDragging 
-          ? "border-orange-400/80 bg-orange-500/10" 
-          : "border-white/20 hover:border-orange-400/50 hover:bg-white/5",
-        isLoading && "opacity-50 pointer-events-none"
-      )} />
-      
-      {/* 动态光效 - 虹彩渐变 */}
-      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
-        <div className="absolute top-0 left-1/4 w-40 h-40 bg-orange-500/20 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-0 right-1/4 w-40 h-40 bg-cyan-500/20 rounded-full blur-3xl animate-pulse delay-100" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 bg-yellow-400/15 rounded-full blur-2xl animate-pulse delay-200" />
-      </div>
-      
-      {/* 内容 - 自适应高度 */}
-      <div className="relative flex flex-col items-center justify-center py-12 px-8 text-center">
-        <div className="relative mb-4">
-          {/* 外圈动画 - 虹彩渐变 */}
-          <div className="absolute inset-0 rounded-full bg-gradient-to-r from-orange-500 via-yellow-400 to-cyan-500 opacity-60 blur-xl animate-pulse" />
-          {/* 图标容器 */}
-          <div className={cn(
-            "relative rounded-full p-4 transition-all duration-300",
-            "bg-gradient-to-br from-orange-500/30 via-yellow-400/20 to-cyan-500/30",
-            "border border-white/20",
-            "group-hover:scale-110 group-hover:border-orange-400/50",
-            isDragging && "scale-110 border-orange-400"
-          )}>
-            <Upload className="h-8 w-8 text-white" />
+    <>
+      <div
+        className={cn(
+          "relative group cursor-pointer",
+          "w-full max-w-[400px]",
+          "rounded-2xl overflow-hidden",
+          "transition-all duration-300",
+          isDragging && "scale-[1.02]"
+        )}
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onClick={() => setShowSourceDialog(true)}
+      >
+        {/* 背景 */}
+        <div className={cn(
+          "absolute inset-0",
+          "backdrop-blur-xl border-2 border-dashed transition-all duration-300",
+          isDragging 
+            ? "border-orange-400/80 bg-orange-500/10" 
+            : "border-white/20 hover:border-orange-400/50 hover:bg-white/5",
+          isLoading && "opacity-50 pointer-events-none"
+        )} />
+        
+        {/* 动态光效 - 虹彩渐变 */}
+        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+          <div className="absolute top-0 left-1/4 w-40 h-40 bg-orange-500/20 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute bottom-0 right-1/4 w-40 h-40 bg-cyan-500/20 rounded-full blur-3xl animate-pulse delay-100" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 bg-yellow-400/15 rounded-full blur-2xl animate-pulse delay-200" />
+        </div>
+        
+        {/* 内容 - 自适应高度 */}
+        <div className="relative flex flex-col items-center justify-center py-12 px-8 text-center">
+          <div className="relative mb-4">
+            {/* 外圈动画 - 虹彩渐变 */}
+            <div className="absolute inset-0 rounded-full bg-gradient-to-r from-orange-500 via-yellow-400 to-cyan-500 opacity-60 blur-xl animate-pulse" />
+            {/* 图标容器 */}
+            <div className={cn(
+              "relative rounded-full p-4 transition-all duration-300",
+              "bg-gradient-to-br from-orange-500/30 via-yellow-400/20 to-cyan-500/30",
+              "border border-white/20",
+              "group-hover:scale-110 group-hover:border-orange-400/50",
+              isDragging && "scale-110 border-orange-400"
+            )}>
+              <Upload className="h-8 w-8 text-white" />
+            </div>
+          </div>
+          
+          <h3 className="mb-2 text-lg font-semibold text-white/90">
+            上传图片
+          </h3>
+          <p className="mb-4 text-sm text-white/50">
+            拖拽图片到此处，或点击选择
+          </p>
+          
+          <div className="flex items-center gap-2 text-xs text-white/30">
+            <Sparkles className="h-3 w-3 text-orange-400" />
+            <span>支持拍摄或导入 JPG, PNG, GIF, WebP</span>
           </div>
         </div>
-        
-        <h3 className="mb-2 text-lg font-semibold text-white/90">
-          上传图片
-        </h3>
-        <p className="mb-4 text-sm text-white/50">
-          拖拽图片到此处，或点击选择文件
-        </p>
-        
-        <div className="flex items-center gap-2 text-xs text-white/30">
-          <Sparkles className="h-3 w-3 text-orange-400" />
-          <span>支持 JPG, PNG, GIF, WebP</span>
-        </div>
       </div>
-      
-      <input
-        id="file-input"
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={handleFileInput}
+
+      {/* 图片来源选择弹窗 */}
+      <ImageSourceDialog
+        open={showSourceDialog}
+        onClose={() => setShowSourceDialog(false)}
+        onImageCapture={handleImageCapture}
       />
-    </div>
+    </>
   );
 }

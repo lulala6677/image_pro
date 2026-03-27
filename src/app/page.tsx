@@ -5,6 +5,7 @@ import { Download, Undo2, GitCompareArrows, ZoomIn, ZoomOut, Maximize, Sparkles,
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ImageUploader, ImageFile } from '@/components/image-uploader';
+import { ImageSourceDialog } from '@/components/image-source-dialog';
 import { OperationPanel } from '@/components/operation-panel';
 import { Histogram } from '@/components/histogram';
 import { HistoryPanel, HistoryEntry, CompareView } from '@/components/history-panel';
@@ -45,6 +46,7 @@ export default function ImageProcessorPage() {
   const [showCompare, setShowCompare] = useState(false);
   const [zoom, setZoom] = useState(100);
   const [showReveal, setShowReveal] = useState(false); // 揭示动画状态
+  const [showReplaceDialog, setShowReplaceDialog] = useState(false); // 更换图片弹窗
   
   // 选区工具状态
   const [activeTool, setActiveTool] = useState<SelectionToolType>('none');
@@ -658,6 +660,43 @@ export default function ImageProcessorPage() {
     setZoom(100);
   }, []);
 
+  // 处理更换图片（从弹窗拍摄或导入）
+  const handleReplaceImage = useCallback((dataUrl: string, width: number, height: number) => {
+    // 重置所有状态
+    setCurrentImage(null);
+    setProcessedImage(null);
+    setHistory([]);
+    setHistoryIndex(-1);
+    setSelection(null);
+    setSelectionOverlay(null);
+    setPixelColorInfo(null);
+    setLassoPoints([]);
+    setShapeStartPoint(null);
+    setShapeEndPoint(null);
+    setIsDrawing(false);
+    setZoom(100);
+    
+    // 设置新图片
+    const imageData: ImageFile = {
+      id: generateId(),
+      dataUrl,
+      width,
+      height,
+      name: `photo-${Date.now()}.jpg`,
+    };
+    setCurrentImage(imageData);
+    setHistory([{
+      id: imageData.id,
+      operation: '上传图片',
+      params: {},
+      timestamp: Date.now(),
+      dataUrl: imageData.dataUrl,
+      width: imageData.width,
+      height: imageData.height,
+    }]);
+    setHistoryIndex(0);
+  }, []);
+
   // 下载图像
   const handleDownload = useCallback(() => {
     const image = processedImage || currentImage;
@@ -845,66 +884,15 @@ export default function ImageProcessorPage() {
               <div className="flex-1 min-h-0 overflow-auto flex items-center justify-center p-6 relative">
                 {/* 更换图片按钮 - 从左侧滑入动画 */}
                 {displayImage && (
-                  <label className="absolute top-4 right-4 z-20 cursor-pointer animate-replace-button">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          // 重置所有状态
-                          setCurrentImage(null);
-                          setProcessedImage(null);
-                          setHistory([]);
-                          setHistoryIndex(-1);
-                          setSelection(null);
-                          setSelectionOverlay(null);
-                          setPixelColorInfo(null);
-                          setLassoPoints([]);
-                          setShapeStartPoint(null);
-                          setShapeEndPoint(null);
-                          setIsDrawing(false);
-                          
-                          // 加载新图片
-                          const reader = new FileReader();
-                          reader.onload = (event) => {
-                            const dataUrl = event.target?.result as string;
-                            const img = new window.Image();
-                            img.onload = () => {
-                              const imageData: ImageFile = {
-                                id: generateId(),
-                                dataUrl,
-                                width: img.width,
-                                height: img.height,
-                                name: file.name,
-                                file,
-                              };
-                              setCurrentImage(imageData);
-                              setHistory([{
-                                id: imageData.id,
-                                operation: '上传图片',
-                                params: {},
-                                timestamp: Date.now(),
-                                dataUrl: imageData.dataUrl,
-                                width: imageData.width,
-                                height: imageData.height,
-                              }]);
-                              setHistoryIndex(0);
-                            };
-                            img.src = dataUrl;
-                          };
-                          reader.readAsDataURL(file);
-                        }
-                        // 清空 input 以便可以再次选择同一文件
-                        e.target.value = '';
-                      }}
-                    />
+                  <button
+                    onClick={() => setShowReplaceDialog(true)}
+                    className="absolute top-4 right-4 z-20 cursor-pointer animate-replace-button"
+                  >
                     <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-br from-orange-400/50 via-amber-300/40 to-orange-500/50 backdrop-blur-xl border border-white/20 text-white/90 hover:from-orange-400/60 hover:via-amber-400/50 hover:to-orange-500/60 hover:text-white hover:border-white/30 transition-all shadow-lg">
                       <RefreshCw className="h-3.5 w-3.5" />
                       <span className="text-xs font-medium">更换图片</span>
                     </div>
-                  </label>
+                  </button>
                 )}
                 
                 {displayImage ? (
@@ -1133,6 +1121,13 @@ export default function ImageProcessorPage() {
           onDownload={handleDownload}
         />
       )}
+
+      {/* 更换图片弹窗 */}
+      <ImageSourceDialog
+        open={showReplaceDialog}
+        onClose={() => setShowReplaceDialog(false)}
+        onImageCapture={handleReplaceImage}
+      />
     </div>
   );
 }
