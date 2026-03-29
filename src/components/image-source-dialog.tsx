@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Camera, Upload, X, RefreshCw, AlertCircle, Info } from 'lucide-react';
+import { Camera, Upload, X, RefreshCw, AlertCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 interface ImageSourceDialogProps {
@@ -16,7 +17,6 @@ export function ImageSourceDialog({ open, onClose, onImageCapture }: ImageSource
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
-  const [debugInfo, setDebugInfo] = useState<string>('');
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -41,54 +41,24 @@ export function ImageSourceDialog({ open, onClose, onImageCapture }: ImageSource
   const startCamera = useCallback(async () => {
     setErrorMessage(null);
     setHasPermission(null);
-    setDebugInfo('开始检测...');
     
     // 检查是否支持摄像头
-    if (!navigator.mediaDevices) {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setHasPermission(false);
-      setErrorMessage('浏览器不支持 mediaDevices API');
-      setDebugInfo('navigator.mediaDevices 不存在');
-      return;
-    }
-
-    if (!navigator.mediaDevices.getUserMedia) {
-      setHasPermission(false);
-      setErrorMessage('浏览器不支持 getUserMedia');
-      setDebugInfo('getUserMedia 方法不存在');
+      setErrorMessage('您的浏览器不支持摄像头功能，请使用现代浏览器（如 Chrome、Firefox、Safari）');
       return;
     }
 
     // 检查是否是 HTTPS 或 localhost
-    const protocol = window.location.protocol;
-    const hostname = window.location.hostname;
-    const isSecure = protocol === 'https:' || hostname === 'localhost' || hostname === '127.0.0.1';
-    
-    setDebugInfo(`协议: ${protocol}, 主机: ${hostname}, 安全: ${isSecure}`);
-    
+    const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     if (!isSecure) {
       setHasPermission(false);
-      setErrorMessage(`需要 HTTPS 连接。当前: ${protocol}//${hostname}`);
+      setErrorMessage('摄像头功能需要 HTTPS 安全连接。请确保网站使用 HTTPS 协议访问。');
       return;
     }
 
-    // 枚举设备
     try {
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const videoDevices = devices.filter(d => d.kind === 'videoinput');
-      setDebugInfo(prev => prev + ` | 摄像头设备: ${videoDevices.length} 个`);
-      
-      if (videoDevices.length === 0) {
-        setHasPermission(false);
-        setErrorMessage('未检测到摄像头设备');
-        return;
-      }
-    } catch (err) {
-      setDebugInfo(prev => prev + ` | 枚举设备失败: ${err}`);
-    }
-
-    try {
-      setDebugInfo(prev => prev + ' | 请求摄像头...');
-      
+      // 先尝试获取摄像头权限
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: facingMode,
@@ -98,38 +68,39 @@ export function ImageSourceDialog({ open, onClose, onImageCapture }: ImageSource
         audio: false
       });
       
-      setDebugInfo(prev => prev + ' | 获取成功');
       streamRef.current = stream;
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        
         videoRef.current.onloadedmetadata = () => {
-          setDebugInfo(prev => prev + ' | 元数据加载完成');
           videoRef.current?.play().then(() => {
-            setDebugInfo(prev => prev + ' | 播放成功');
             setIsStreaming(true);
             setHasPermission(true);
           }).catch(err => {
+            console.error('视频播放失败:', err);
             setHasPermission(false);
-            setErrorMessage(`视频播放失败: ${err}`);
+            setErrorMessage('视频播放失败，请重试');
           });
+        };
+        videoRef.current.onerror = () => {
+          setHasPermission(false);
+          setErrorMessage('视频加载失败');
         };
       }
     } catch (error: unknown) {
       console.error('摄像头访问失败:', error);
       setHasPermission(false);
       
+      // 根据错误类型提供具体提示
       if (error instanceof Error) {
-        setDebugInfo(prev => prev + ` | 错误: ${error.name} - ${error.message}`);
-        
         if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-          setErrorMessage('摄像头权限被拒绝。请点击浏览器地址栏左侧的图标，允许摄像头访问。');
+          setErrorMessage('摄像头权限被拒绝。请在浏览器地址栏左侧点击图标，允许摄像头访问权限后刷新页面重试。');
         } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
-          setErrorMessage('未检测到摄像头设备。请确保电脑已连接摄像头。');
+          setErrorMessage('未检测到摄像头设备。请确保您的电脑已连接摄像头。');
         } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
-          setErrorMessage('摄像头被其他程序占用。请关闭其他程序后重试。');
+          setErrorMessage('摄像头被其他应用程序占用。请关闭其他使用摄像头的程序后重试。');
         } else if (error.name === 'OverconstrainedError') {
+          setErrorMessage('摄像头不支持请求的分辨率。正在尝试较低分辨率...');
           // 尝试使用默认设置
           try {
             const stream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -142,15 +113,16 @@ export function ImageSourceDialog({ open, onClose, onImageCapture }: ImageSource
                 setHasPermission(true);
               };
             }
-            return;
           } catch {
-            setErrorMessage('摄像头不支持请求的分辨率');
+            setErrorMessage('无法启动摄像头');
           }
+        } else if (error.name === 'NotSupportedError') {
+          setErrorMessage('浏览器不支持摄像头功能');
         } else {
-          setErrorMessage(`摄像头访问失败: ${error.name} - ${error.message}`);
+          setErrorMessage(`摄像头访问失败: ${error.message}`);
         }
       } else {
-        setErrorMessage('摄像头访问失败，请检查设备');
+        setErrorMessage('摄像头访问失败，请检查设备连接');
       }
     }
   }, [facingMode]);
@@ -223,7 +195,6 @@ export function ImageSourceDialog({ open, onClose, onImageCapture }: ImageSource
     if (!open) {
       stopCamera();
       setMode('select');
-      setDebugInfo('');
     }
   }, [open, stopCamera]);
 
@@ -253,13 +224,6 @@ export function ImageSourceDialog({ open, onClose, onImageCapture }: ImageSource
         >
           <X className="h-5 w-5 text-white" />
         </button>
-
-        {/* 调试信息 - 临时显示 */}
-        {debugInfo && mode === 'camera' && (
-          <div className="absolute top-4 left-4 z-10 max-w-xs p-2 bg-black/60 rounded text-xs text-white/60 break-all">
-            {debugInfo}
-          </div>
-        )}
 
         {mode === 'select' ? (
           /* 选择模式 */
@@ -305,7 +269,6 @@ export function ImageSourceDialog({ open, onClose, onImageCapture }: ImageSource
               className="relative bg-black"
               style={{ aspectRatio: '4/3' }}
             >
-              {/* 始终渲染 video 元素 */}
               <video
                 ref={videoRef}
                 autoPlay
@@ -313,7 +276,7 @@ export function ImageSourceDialog({ open, onClose, onImageCapture }: ImageSource
                 muted
                 className={cn(
                   "w-full h-full object-cover",
-                  isStreaming ? "block" : "hidden"
+                  !isStreaming && "hidden"
                 )}
                 style={{ transform: facingMode === 'user' ? 'scaleX(-1)' : 'none' }}
               />
@@ -325,21 +288,13 @@ export function ImageSourceDialog({ open, onClose, onImageCapture }: ImageSource
                     <div className="text-center p-6 max-w-md">
                       <AlertCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
                       <p className="text-white/90 font-medium mb-2">无法访问摄像头</p>
-                      <p className="text-white/60 text-sm leading-relaxed">{errorMessage}</p>
-                      <div className="mt-4 flex gap-2 justify-center">
-                        <button
-                          onClick={startCamera}
-                          className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white/80 text-sm transition-colors"
-                        >
-                          重试
-                        </button>
-                        <button
-                          onClick={() => fileInputRef.current?.click()}
-                          className="px-4 py-2 bg-cyan-500/30 hover:bg-cyan-500/40 rounded-lg text-white/80 text-sm transition-colors"
-                        >
-                          改用文件上传
-                        </button>
-                      </div>
+                      <p className="text-white/60 text-sm leading-relaxed">{errorMessage || '请检查浏览器权限设置'}</p>
+                      <button
+                        onClick={startCamera}
+                        className="mt-4 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white/80 text-sm transition-colors"
+                      >
+                        重试
+                      </button>
                     </div>
                   ) : (
                     <div className="text-center">
@@ -392,15 +347,6 @@ export function ImageSourceDialog({ open, onClose, onImageCapture }: ImageSource
       
       {/* 隐藏的 canvas 用于拍照 */}
       <canvas ref={canvasRef} className="hidden" />
-      
-      {/* 隐藏的文件上传 input */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={handleFileUpload}
-      />
     </div>
   );
 }
