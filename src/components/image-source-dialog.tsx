@@ -23,6 +23,7 @@ interface CameraDevice {
   label: string;
   kind: string;
   deviceType: 'phone' | 'pc' | 'unknown';
+  shortName: string;
 }
 
 interface ImageSourceDialogProps {
@@ -31,29 +32,41 @@ interface ImageSourceDialogProps {
   onImageCapture: (dataUrl: string, width: number, height: number) => void;
 }
 
-// 根据摄像头名称识别设备类型
-function detectDeviceType(label: string): { type: 'phone' | 'pc' | 'unknown'; displayName: string } {
+// 根据摄像头名称识别设备类型，并提取简洁的显示名称
+function detectDeviceType(label: string): { type: 'phone' | 'pc' | 'unknown'; displayName: string; shortName: string } {
   const lowerLabel = label.toLowerCase();
   
   // 检查是否是手机摄像头
   for (const brand of PHONE_BRANDS) {
     if (label.toLowerCase().includes(brand.toLowerCase())) {
-      // 提取手机品牌名称
-      const brandMatch = label.match(new RegExp(brand, 'i'));
-      const displayName = brandMatch ? brandMatch[0] : brand;
-      return { type: 'phone', displayName };
+      // 提取手机品牌和型号
+      // 例如: "OPPO Find X9 (Windows 虚拟摄像头)" -> "OPPO Find X9"
+      let shortName = label
+        .replace(/\s*\(.*?\)\s*/g, '') // 移除括号内容
+        .replace(/\s*虚拟摄像头\s*/gi, '')
+        .replace(/\s*Windows\s*/gi, '')
+        .trim();
+      
+      return { type: 'phone', displayName: label, shortName };
     }
   }
   
   // 检查是否是电脑摄像头
   for (const keyword of PC_CAMERA_KEYWORDS) {
     if (lowerLabel.includes(keyword.toLowerCase())) {
-      return { type: 'pc', displayName: label };
+      // 提取简洁名称
+      // 例如: "Integrated Camera (5986:212b)" -> "Integrated Camera"
+      let shortName = label
+        .replace(/\s*\(.*?\)\s*/g, '')
+        .trim();
+      
+      return { type: 'pc', displayName: label, shortName };
     }
   }
   
   // 默认未知类型
-  return { type: 'unknown', displayName: label };
+  let shortName = label.replace(/\s*\(.*?\)\s*/g, '').trim();
+  return { type: 'unknown', displayName: label, shortName };
 }
 
 export function ImageSourceDialog({ open, onClose, onImageCapture }: ImageSourceDialogProps) {
@@ -94,21 +107,19 @@ export function ImageSourceDialog({ open, onClose, onImageCapture }: ImageSource
       const videoDevices = devices
         .filter(device => device.kind === 'videoinput')
         .map(device => {
-          const { type, displayName } = detectDeviceType(device.label || '');
+          const { type, displayName, shortName } = detectDeviceType(device.label || '');
           return {
             deviceId: device.deviceId,
             label: device.label || `摄像头 ${device.deviceId.slice(0, 8)}`,
             kind: device.kind,
             deviceType: type,
-            displayName
+            shortName
           };
         });
       
       // 按设备类型排序：电脑摄像头优先，然后是手机摄像头，最后是未知
       const typeOrder = { 'pc': 0, 'unknown': 1, 'phone': 2 };
       videoDevices.sort((a, b) => typeOrder[a.deviceType] - typeOrder[b.deviceType]);
-      
-      return videoDevices;
       
       return videoDevices;
     } catch (error) {
@@ -371,7 +382,7 @@ export function ImageSourceDialog({ open, onClose, onImageCapture }: ImageSource
             <p className="text-white/50 text-sm text-center mb-6">检测到 {cameras.length} 个摄像头设备</p>
             <div className="space-y-3">
               {cameras.map((camera) => {
-                // 根据设备类型确定图标和描述
+                // 根据设备类型确定图标
                 const isPcCamera = camera.deviceType === 'pc';
                 const isPhoneCamera = camera.deviceType === 'phone';
                 
@@ -404,10 +415,8 @@ export function ImageSourceDialog({ open, onClose, onImageCapture }: ImageSource
                       )}
                     </div>
                     <div className="flex-1 text-left">
-                      <p className="text-white font-medium">{camera.label}</p>
-                      <p className="text-white/40 text-xs">
-                        {isPcCamera ? '电脑摄像头' : isPhoneCamera ? '手机摄像头' : '外接摄像头'}
-                      </p>
+                      <p className="text-white font-medium">{camera.shortName || camera.label}</p>
+                      <p className="text-white/40 text-xs truncate">{camera.label}</p>
                     </div>
                     <Camera className="h-5 w-5 text-white/40" />
                   </button>
