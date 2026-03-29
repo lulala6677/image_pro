@@ -120,6 +120,7 @@ export function ImageSourceDialog({ open, onClose, onImageCapture }: ImageSource
   // 选择拍摄模式时，先检测摄像头
   const handleSelectCameraMode = useCallback(async () => {
     setErrorMessage(null);
+    setCameras([]); // 先清空列表，确保重新获取
     
     // 检查是否支持摄像头
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -129,7 +130,7 @@ export function ImageSourceDialog({ open, onClose, onImageCapture }: ImageSource
       return;
     }
 
-    // 获取摄像头列表
+    // 获取摄像头列表（每次都重新获取最新信息）
     const cameraList = await getCameraList();
     setCameras(cameraList);
 
@@ -291,6 +292,23 @@ export function ImageSourceDialog({ open, onClose, onImageCapture }: ImageSource
     }
   }, [mode, selectedCamera, startCamera]);
 
+  // 监听设备变化（设备连接/断开/名称改变）
+  useEffect(() => {
+    if (!open) return;
+
+    const handleDeviceChange = async () => {
+      // 设备变化时重新获取列表
+      const cameraList = await getCameraList();
+      setCameras(cameraList);
+    };
+
+    navigator.mediaDevices?.addEventListener('devicechange', handleDeviceChange);
+    
+    return () => {
+      navigator.mediaDevices?.removeEventListener('devicechange', handleDeviceChange);
+    };
+  }, [open, getCameraList]);
+
   // 对话框关闭时清理
   useEffect(() => {
     if (!open) {
@@ -367,7 +385,20 @@ export function ImageSourceDialog({ open, onClose, onImageCapture }: ImageSource
         ) : mode === 'choose-camera' ? (
           /* 选择摄像头 */
           <div className="p-8">
-            <h3 className="text-xl font-semibold text-white text-center mb-2">选择摄像头</h3>
+            <div className="flex items-center justify-center gap-3 mb-2">
+              <h3 className="text-xl font-semibold text-white">选择摄像头</h3>
+              <button
+                onClick={async () => {
+                  setCameras([]);
+                  const cameraList = await getCameraList();
+                  setCameras(cameraList);
+                }}
+                className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
+                title="刷新设备列表"
+              >
+                <RefreshCw className="h-4 w-4 text-white/70" />
+              </button>
+            </div>
             <p className="text-white/50 text-sm text-center mb-6">检测到 {cameras.length} 个摄像头设备</p>
             <div className="space-y-3">
               {cameras.map((camera) => {
