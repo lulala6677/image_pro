@@ -1,19 +1,59 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Camera, Upload, X, RefreshCw, AlertCircle, Monitor, Smartphone } from 'lucide-react';
+import { Camera, Upload, X, RefreshCw, AlertCircle, Monitor, Smartphone, Video } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+// 手机品牌关键词列表
+const PHONE_BRANDS = [
+  'iPhone', 'Samsung', 'OPPO', 'vivo', 'Xiaomi', 'Huawei', 'Honor', 'OnePlus',
+  'Realme', 'Redmi', 'Pixel', 'LG', 'Sony', 'Motorola', 'Nokia', 'ZTE',
+  'Lenovo', 'Asus', 'HTC', 'BlackBerry', 'Windows 虚拟摄像头', '虚拟摄像头',
+  'DroidCam', 'IP Webcam', 'iVCam', 'EpocCam', 'Camo'
+];
+
+// 电脑摄像头关键词列表
+const PC_CAMERA_KEYWORDS = [
+  'Integrated', 'Webcam', 'USB Camera', 'USB2.0', 'USB3.0', 'HD Camera',
+  'HD WebCam', 'WebCam', 'Camera', 'FaceTime', 'Built-in', 'Internal'
+];
 
 interface CameraDevice {
   deviceId: string;
   label: string;
   kind: string;
+  deviceType: 'phone' | 'pc' | 'unknown';
 }
 
 interface ImageSourceDialogProps {
   open: boolean;
   onClose: () => void;
   onImageCapture: (dataUrl: string, width: number, height: number) => void;
+}
+
+// 根据摄像头名称识别设备类型
+function detectDeviceType(label: string): { type: 'phone' | 'pc' | 'unknown'; displayName: string } {
+  const lowerLabel = label.toLowerCase();
+  
+  // 检查是否是手机摄像头
+  for (const brand of PHONE_BRANDS) {
+    if (label.toLowerCase().includes(brand.toLowerCase())) {
+      // 提取手机品牌名称
+      const brandMatch = label.match(new RegExp(brand, 'i'));
+      const displayName = brandMatch ? brandMatch[0] : brand;
+      return { type: 'phone', displayName };
+    }
+  }
+  
+  // 检查是否是电脑摄像头
+  for (const keyword of PC_CAMERA_KEYWORDS) {
+    if (lowerLabel.includes(keyword.toLowerCase())) {
+      return { type: 'pc', displayName: label };
+    }
+  }
+  
+  // 默认未知类型
+  return { type: 'unknown', displayName: label };
 }
 
 export function ImageSourceDialog({ open, onClose, onImageCapture }: ImageSourceDialogProps) {
@@ -53,11 +93,22 @@ export function ImageSourceDialog({ open, onClose, onImageCapture }: ImageSource
       const devices = await navigator.mediaDevices.enumerateDevices();
       const videoDevices = devices
         .filter(device => device.kind === 'videoinput')
-        .map(device => ({
-          deviceId: device.deviceId,
-          label: device.label || `摄像头 ${device.deviceId.slice(0, 8)}`,
-          kind: device.kind
-        }));
+        .map(device => {
+          const { type, displayName } = detectDeviceType(device.label || '');
+          return {
+            deviceId: device.deviceId,
+            label: device.label || `摄像头 ${device.deviceId.slice(0, 8)}`,
+            kind: device.kind,
+            deviceType: type,
+            displayName
+          };
+        });
+      
+      // 按设备类型排序：电脑摄像头优先，然后是手机摄像头，最后是未知
+      const typeOrder = { 'pc': 0, 'unknown': 1, 'phone': 2 };
+      videoDevices.sort((a, b) => typeOrder[a.deviceType] - typeOrder[b.deviceType]);
+      
+      return videoDevices;
       
       return videoDevices;
     } catch (error) {
@@ -319,34 +370,49 @@ export function ImageSourceDialog({ open, onClose, onImageCapture }: ImageSource
             <h3 className="text-xl font-semibold text-white text-center mb-2">选择摄像头</h3>
             <p className="text-white/50 text-sm text-center mb-6">检测到 {cameras.length} 个摄像头设备</p>
             <div className="space-y-3">
-              {cameras.map((camera, index) => (
-                <button
-                  key={camera.deviceId}
-                  onClick={() => {
-                    setSelectedCamera(camera.deviceId);
-                    setMode('camera');
-                  }}
-                  className={cn(
-                    "w-full flex items-center gap-4 p-4 rounded-xl border transition-all",
-                    "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/30"
-                  )}
-                >
-                  <div className="p-3 rounded-full bg-gradient-to-br from-orange-400/50 to-orange-500/50">
-                    {index === 0 ? (
-                      <Monitor className="h-6 w-6 text-white" />
-                    ) : (
-                      <Smartphone className="h-6 w-6 text-white" />
+              {cameras.map((camera) => {
+                // 根据设备类型确定图标和描述
+                const isPcCamera = camera.deviceType === 'pc';
+                const isPhoneCamera = camera.deviceType === 'phone';
+                
+                return (
+                  <button
+                    key={camera.deviceId}
+                    onClick={() => {
+                      setSelectedCamera(camera.deviceId);
+                      setMode('camera');
+                    }}
+                    className={cn(
+                      "w-full flex items-center gap-4 p-4 rounded-xl border transition-all",
+                      "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/30"
                     )}
-                  </div>
-                  <div className="flex-1 text-left">
-                    <p className="text-white font-medium">{camera.label}</p>
-                    <p className="text-white/40 text-xs">
-                      {index === 0 ? '电脑摄像头' : '外接摄像头'}
-                    </p>
-                  </div>
-                  <Camera className="h-5 w-5 text-white/40" />
-                </button>
-              ))}
+                  >
+                    <div className={cn(
+                      "p-3 rounded-full",
+                      isPcCamera 
+                        ? "bg-gradient-to-br from-cyan-400/50 to-blue-500/50"
+                        : isPhoneCamera
+                          ? "bg-gradient-to-br from-orange-400/50 to-orange-500/50"
+                          : "bg-gradient-to-br from-gray-400/50 to-gray-500/50"
+                    )}>
+                      {isPcCamera ? (
+                        <Monitor className="h-6 w-6 text-white" />
+                      ) : isPhoneCamera ? (
+                        <Smartphone className="h-6 w-6 text-white" />
+                      ) : (
+                        <Video className="h-6 w-6 text-white" />
+                      )}
+                    </div>
+                    <div className="flex-1 text-left">
+                      <p className="text-white font-medium">{camera.label}</p>
+                      <p className="text-white/40 text-xs">
+                        {isPcCamera ? '电脑摄像头' : isPhoneCamera ? '手机摄像头' : '外接摄像头'}
+                      </p>
+                    </div>
+                    <Camera className="h-5 w-5 text-white/40" />
+                  </button>
+                );
+              })}
             </div>
             
             {/* 返回按钮 */}
