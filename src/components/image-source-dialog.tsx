@@ -1,9 +1,14 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Camera, Upload, X, RefreshCw, AlertCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Camera, Upload, X, RefreshCw, AlertCircle, Monitor, Smartphone } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+interface CameraDevice {
+  deviceId: string;
+  label: string;
+  kind: string;
+}
 
 interface ImageSourceDialogProps {
   open: boolean;
@@ -12,11 +17,12 @@ interface ImageSourceDialogProps {
 }
 
 export function ImageSourceDialog({ open, onClose, onImageCapture }: ImageSourceDialogProps) {
-  const [mode, setMode] = useState<'select' | 'camera'>('select');
+  const [mode, setMode] = useState<'select' | 'choose-camera' | 'camera'>('select');
   const [isStreaming, setIsStreaming] = useState(false);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
+  const [cameras, setCameras] = useState<CameraDevice[]>([]);
+  const [selectedCamera, setSelectedCamera] = useState<string | null>(null);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -37,39 +43,87 @@ export function ImageSourceDialog({ open, onClose, onImageCapture }: ImageSource
     setErrorMessage(null);
   }, []);
 
-  // 启动摄像头
-  const startCamera = useCallback(async () => {
+  // 获取摄像头列表
+  const getCameraList = useCallback(async (): Promise<CameraDevice[]> => {
+    try {
+      // 先请求一次权限，这样才能获取到设备标签
+      const tempStream = await navigator.mediaDevices.getUserMedia({ video: true });
+      tempStream.getTracks().forEach(track => track.stop());
+
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = devices
+        .filter(device => device.kind === 'videoinput')
+        .map(device => ({
+          deviceId: device.deviceId,
+          label: device.label || `摄像头 ${device.deviceId.slice(0, 8)}`,
+          kind: device.kind
+        }));
+      
+      return videoDevices;
+    } catch (error) {
+      console.error('获取摄像头列表失败:', error);
+      return [];
+    }
+  }, []);
+
+  // 选择拍摄模式时，先检测摄像头
+  const handleSelectCameraMode = useCallback(async () => {
     setErrorMessage(null);
-    setHasPermission(null);
     
     // 检查是否支持摄像头
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setHasPermission(false);
       setErrorMessage('您的浏览器不支持摄像头功能，请使用现代浏览器（如 Chrome、Firefox、Safari）');
+      setMode('camera');
       return;
     }
 
-    // 检查是否是 HTTPS 或 localhost
-    const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    if (!isSecure) {
+    // 获取摄像头列表
+    const cameraList = await getCameraList();
+    setCameras(cameraList);
+
+    if (cameraList.length === 0) {
       setHasPermission(false);
-      setErrorMessage('摄像头功能需要 HTTPS 安全连接。请确保网站使用 HTTPS 协议访问。');
+      setErrorMessage('未检测到摄像头设备。请确保您的电脑已连接摄像头。');
+      setMode('camera');
+    } else if (cameraList.length === 1) {
+      // 只有一个摄像头，直接使用
+      setSelectedCamera(cameraList[0].deviceId);
+      setMode('camera');
+    } else {
+      // 多个摄像头，显示选择界面
+      setMode('choose-camera');
+    }
+  }, [getCameraList]);
+
+  // 启动摄像头
+  const startCamera = useCallback(async (deviceId?: string) => {
+    setErrorMessage(null);
+    setHasPermission(null);
+
+    const targetDeviceId = deviceId || selectedCamera;
+    if (!targetDeviceId) {
+      setHasPermission(false);
+      setErrorMessage('请选择要使用的摄像头');
       return;
     }
 
     try {
-      // 先尝试获取摄像头权限
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: facingMode,
+      const constraints: MediaStreamConstraints = {
+        video: targetDeviceId ? {
+          deviceId: { exact: targetDeviceId },
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        } : {
           width: { ideal: 1280 },
           height: { ideal: 720 }
         },
         audio: false
-      });
-      
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       streamRef.current = stream;
-      
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         videoRef.current.onloadedmetadata = () => {
@@ -90,8 +144,7 @@ export function ImageSourceDialog({ open, onClose, onImageCapture }: ImageSource
     } catch (error: unknown) {
       console.error('摄像头访问失败:', error);
       setHasPermission(false);
-      
-      // 根据错误类型提供具体提示
+
       if (error instanceof Error) {
         if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
           setErrorMessage('摄像头权限被拒绝。请在浏览器地址栏左侧点击图标，允许摄像头访问权限后刷新页面重试。');
@@ -100,7 +153,6 @@ export function ImageSourceDialog({ open, onClose, onImageCapture }: ImageSource
         } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
           setErrorMessage('摄像头被其他应用程序占用。请关闭其他使用摄像头的程序后重试。');
         } else if (error.name === 'OverconstrainedError') {
-          setErrorMessage('摄像头不支持请求的分辨率。正在尝试较低分辨率...');
           // 尝试使用默认设置
           try {
             const stream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -116,8 +168,6 @@ export function ImageSourceDialog({ open, onClose, onImageCapture }: ImageSource
           } catch {
             setErrorMessage('无法启动摄像头');
           }
-        } else if (error.name === 'NotSupportedError') {
-          setErrorMessage('浏览器不支持摄像头功能');
         } else {
           setErrorMessage(`摄像头访问失败: ${error.message}`);
         }
@@ -125,13 +175,19 @@ export function ImageSourceDialog({ open, onClose, onImageCapture }: ImageSource
         setErrorMessage('摄像头访问失败，请检查设备连接');
       }
     }
-  }, [facingMode]);
+  }, [selectedCamera]);
 
-  // 切换前后摄像头
+  // 切换摄像头
   const switchCamera = useCallback(async () => {
     stopCamera();
-    setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
-  }, [stopCamera]);
+    
+    // 找到当前摄像头的索引，切换到下一个
+    const currentIndex = cameras.findIndex(c => c.deviceId === selectedCamera);
+    const nextIndex = (currentIndex + 1) % cameras.length;
+    const nextCamera = cameras[nextIndex];
+    
+    setSelectedCamera(nextCamera.deviceId);
+  }, [cameras, selectedCamera, stopCamera]);
 
   // 拍照
   const capturePhoto = useCallback(() => {
@@ -148,21 +204,15 @@ export function ImageSourceDialog({ open, onClose, onImageCapture }: ImageSource
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // 如果是前置摄像头，水平翻转
-    if (facingMode === 'user') {
-      ctx.translate(canvas.width, 0);
-      ctx.scale(-1, 1);
-    }
-    
     ctx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
-    
+
     const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
     onImageCapture(dataUrl, video.videoWidth, video.videoHeight);
-    
+
     stopCamera();
     setMode('select');
     onClose();
-  }, [isStreaming, facingMode, onImageCapture, stopCamera, onClose]);
+  }, [isStreaming, onImageCapture, stopCamera, onClose]);
 
   // 处理文件上传
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -179,22 +229,24 @@ export function ImageSourceDialog({ open, onClose, onImageCapture }: ImageSource
       img.src = dataUrl;
     };
     reader.readAsDataURL(file);
-    
+
     onClose();
   }, [onImageCapture, onClose]);
 
-  // 监听 facingMode 变化，重新启动摄像头
+  // 监听 mode 变化启动摄像头
   useEffect(() => {
-    if (open && mode === 'camera') {
-      startCamera();
+    if (mode === 'camera' && selectedCamera) {
+      startCamera(selectedCamera);
     }
-  }, [open, mode, facingMode, startCamera]);
+  }, [mode, selectedCamera, startCamera]);
 
   // 对话框关闭时清理
   useEffect(() => {
     if (!open) {
       stopCamera();
       setMode('select');
+      setCameras([]);
+      setSelectedCamera(null);
     }
   }, [open, stopCamera]);
 
@@ -208,12 +260,12 @@ export function ImageSourceDialog({ open, onClose, onImageCapture }: ImageSource
   if (!open) return null;
 
   return (
-    <div 
+    <div
       className="fixed inset-0 z-50 flex items-center justify-center"
       style={{ backgroundColor: 'rgba(0, 0, 0, 0.85)' }}
       onClick={onClose}
     >
-      <div 
+      <div
         className="relative w-full max-w-2xl mx-4 bg-black/90 backdrop-blur-xl rounded-2xl border border-white/20 overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
@@ -232,7 +284,7 @@ export function ImageSourceDialog({ open, onClose, onImageCapture }: ImageSource
             <div className="grid grid-cols-2 gap-4">
               {/* 拍摄按钮 */}
               <button
-                onClick={() => setMode('camera')}
+                onClick={handleSelectCameraMode}
                 className="flex flex-col items-center justify-center gap-3 p-6 rounded-xl bg-gradient-to-br from-orange-400/40 via-amber-300/30 to-orange-500/40 border border-white/20 hover:border-white/40 transition-all group"
               >
                 <div className="p-4 rounded-full bg-gradient-to-br from-orange-400/60 to-orange-500/60 group-hover:from-orange-400 group-hover:to-orange-500 transition-all">
@@ -252,7 +304,7 @@ export function ImageSourceDialog({ open, onClose, onImageCapture }: ImageSource
                 <span className="text-white font-medium">导入图片</span>
               </button>
             </div>
-            
+
             <input
               ref={fileInputRef}
               type="file"
@@ -261,11 +313,55 @@ export function ImageSourceDialog({ open, onClose, onImageCapture }: ImageSource
               onChange={handleFileUpload}
             />
           </div>
+        ) : mode === 'choose-camera' ? (
+          /* 选择摄像头 */
+          <div className="p-8">
+            <h3 className="text-xl font-semibold text-white text-center mb-2">选择摄像头</h3>
+            <p className="text-white/50 text-sm text-center mb-6">检测到 {cameras.length} 个摄像头设备</p>
+            <div className="space-y-3">
+              {cameras.map((camera, index) => (
+                <button
+                  key={camera.deviceId}
+                  onClick={() => {
+                    setSelectedCamera(camera.deviceId);
+                    setMode('camera');
+                  }}
+                  className={cn(
+                    "w-full flex items-center gap-4 p-4 rounded-xl border transition-all",
+                    "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/30"
+                  )}
+                >
+                  <div className="p-3 rounded-full bg-gradient-to-br from-orange-400/50 to-orange-500/50">
+                    {index === 0 ? (
+                      <Monitor className="h-6 w-6 text-white" />
+                    ) : (
+                      <Smartphone className="h-6 w-6 text-white" />
+                    )}
+                  </div>
+                  <div className="flex-1 text-left">
+                    <p className="text-white font-medium">{camera.label}</p>
+                    <p className="text-white/40 text-xs">
+                      {index === 0 ? '电脑摄像头' : '外接摄像头'}
+                    </p>
+                  </div>
+                  <Camera className="h-5 w-5 text-white/40" />
+                </button>
+              ))}
+            </div>
+            
+            {/* 返回按钮 */}
+            <button
+              onClick={() => setMode('select')}
+              className="w-full mt-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 hover:text-white transition-all"
+            >
+              返回上一步
+            </button>
+          </div>
         ) : (
           /* 摄像头模式 */
           <div className="relative">
             {/* 视频预览 */}
-            <div 
+            <div
               className="relative bg-black"
               style={{ aspectRatio: '4/3' }}
             >
@@ -278,9 +374,8 @@ export function ImageSourceDialog({ open, onClose, onImageCapture }: ImageSource
                   "w-full h-full object-cover",
                   !isStreaming && "hidden"
                 )}
-                style={{ transform: facingMode === 'user' ? 'scaleX(-1)' : 'none' }}
               />
-              
+
               {/* 加载中 / 无权限提示 */}
               {!isStreaming && (
                 <div className="absolute inset-0 flex items-center justify-center">
@@ -289,12 +384,20 @@ export function ImageSourceDialog({ open, onClose, onImageCapture }: ImageSource
                       <AlertCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
                       <p className="text-white/90 font-medium mb-2">无法访问摄像头</p>
                       <p className="text-white/60 text-sm leading-relaxed">{errorMessage || '请检查浏览器权限设置'}</p>
-                      <button
-                        onClick={startCamera}
-                        className="mt-4 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white/80 text-sm transition-colors"
-                      >
-                        重试
-                      </button>
+                      <div className="flex gap-2 justify-center mt-4">
+                        <button
+                          onClick={() => startCamera(selectedCamera || undefined)}
+                          className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white/80 text-sm transition-colors"
+                        >
+                          重试
+                        </button>
+                        <button
+                          onClick={() => setMode('select')}
+                          className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white/80 text-sm transition-colors"
+                        >
+                          返回
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <div className="text-center">
@@ -306,17 +409,28 @@ export function ImageSourceDialog({ open, onClose, onImageCapture }: ImageSource
                 </div>
               )}
 
+              {/* 当前摄像头名称 */}
+              {isStreaming && cameras.length > 1 && (
+                <div className="absolute top-4 left-4 px-3 py-1.5 rounded-lg bg-black/50 backdrop-blur-sm border border-white/10">
+                  <p className="text-white/80 text-xs">
+                    {cameras.find(c => c.deviceId === selectedCamera)?.label || '摄像头'}
+                  </p>
+                </div>
+              )}
+
               {/* 控制按钮 */}
               {isStreaming && (
                 <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-4">
-                  {/* 切换摄像头 */}
-                  <button
-                    onClick={switchCamera}
-                    className="p-3 rounded-full bg-white/20 hover:bg-white/30 transition-colors backdrop-blur-sm"
-                    title="切换摄像头"
-                  >
-                    <RefreshCw className="h-5 w-5 text-white" />
-                  </button>
+                  {/* 切换摄像头 - 只有多摄像头时显示 */}
+                  {cameras.length > 1 && (
+                    <button
+                      onClick={switchCamera}
+                      className="p-3 rounded-full bg-white/20 hover:bg-white/30 transition-colors backdrop-blur-sm"
+                      title="切换摄像头"
+                    >
+                      <RefreshCw className="h-5 w-5 text-white" />
+                    </button>
+                  )}
 
                   {/* 拍照按钮 */}
                   <button
@@ -331,7 +445,11 @@ export function ImageSourceDialog({ open, onClose, onImageCapture }: ImageSource
                   <button
                     onClick={() => {
                       stopCamera();
-                      setMode('select');
+                      if (cameras.length > 1) {
+                        setMode('choose-camera');
+                      } else {
+                        setMode('select');
+                      }
                     }}
                     className="p-3 rounded-full bg-white/20 hover:bg-white/30 transition-colors backdrop-blur-sm"
                     title="取消"
@@ -344,7 +462,7 @@ export function ImageSourceDialog({ open, onClose, onImageCapture }: ImageSource
           </div>
         )}
       </div>
-      
+
       {/* 隐藏的 canvas 用于拍照 */}
       <canvas ref={canvasRef} className="hidden" />
     </div>
