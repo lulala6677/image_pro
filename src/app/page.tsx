@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ImageUploader, ImageFile } from '@/components/image-uploader';
 import { ImageSourceDialog } from '@/components/image-source-dialog';
 import { OperationPanel } from '@/components/operation-panel';
+import { AIProcessingPanel } from '@/components/ai-processing-panel';
 import { Histogram } from '@/components/histogram';
 import { HistoryPanel, HistoryEntry, CompareView } from '@/components/history-panel';
 import { BubblesBackground } from '@/components/ui/bubbles-background';
@@ -831,20 +832,82 @@ export default function ImageProcessorPage() {
           maxRightWidth={400}
           leftPanel={
             <div className="h-full w-full overflow-y-auto bg-black/40 backdrop-blur-xl border-r border-white/10">
-              <OperationPanel 
-                onApply={applyOperation} 
-                isProcessing={isProcessing}
-                imageWidth={displayImage?.width}
-                imageHeight={displayImage?.height}
-                selection={selection}
-                onSelectionChange={setSelection}
-                activeTool={activeTool}
-                onActiveToolChange={setActiveTool}
-                wandParams={wandParams}
-                onWandParamsChange={setWandParams}
-                lassoParams={lassoParams}
-                onLassoParamsChange={setLassoParams}
-              />
+              <Tabs defaultValue="basic" className="h-full flex flex-col">
+                <TabsList className="w-full grid grid-cols-2 bg-black/40 border-b border-white/10 rounded-none h-auto p-1">
+                  <TabsTrigger 
+                    value="basic" 
+                    className="flex items-center gap-2 text-xs py-2 data-[state=active]:bg-white/10"
+                  >
+                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="3" y="3" width="7" height="7" />
+                      <rect x="14" y="3" width="7" height="7" />
+                      <rect x="3" y="14" width="7" height="7" />
+                      <rect x="14" y="14" width="7" height="7" />
+                    </svg>
+                    基础处理
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="ai" 
+                    className="flex items-center gap-2 text-xs py-2 data-[state=active]:bg-white/10"
+                  >
+                    <Sparkles className="h-4 w-4 text-amber-400" />
+                    AI 智能
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="basic" className="flex-1 mt-0">
+                  <OperationPanel 
+                    onApply={applyOperation} 
+                    isProcessing={isProcessing}
+                    imageWidth={displayImage?.width}
+                    imageHeight={displayImage?.height}
+                    selection={selection}
+                    onSelectionChange={setSelection}
+                    activeTool={activeTool}
+                    onActiveToolChange={setActiveTool}
+                    wandParams={wandParams}
+                    onWandParamsChange={setWandParams}
+                    lassoParams={lassoParams}
+                    onLassoParamsChange={setLassoParams}
+                  />
+                </TabsContent>
+                <TabsContent value="ai" className="flex-1 mt-0">
+                  <AIProcessingPanel
+                    imageUrl={displayImage?.dataUrl}
+                    onProcess={(resultUrl, operation) => {
+                      // 处理 AI 返回的结果
+                      const newId = generateId();
+                      const img = new Image();
+                      img.onload = () => {
+                        const newProcessedImage: ProcessedImage = {
+                          id: newId,
+                          dataUrl: resultUrl,
+                          width: img.width,
+                          height: img.height
+                        };
+                        setShowReveal(true);
+                        setTimeout(() => setShowReveal(false), 1000);
+                        setProcessedImage(newProcessedImage);
+                        
+                        // 添加到历史记录
+                        const historyEntry: HistoryEntry = {
+                          id: newId,
+                          operation: operation,
+                          params: {},
+                          dataUrl: resultUrl,
+                          width: img.width,
+                          height: img.height,
+                          timestamp: Date.now()
+                        };
+                        setHistory(prev => [...prev.slice(0, historyIndex + 1), historyEntry]);
+                        setHistoryIndex(prev => prev + 1);
+                      };
+                      img.src = resultUrl;
+                    }}
+                    isProcessing={isProcessing}
+                    onProcessingChange={setIsProcessing}
+                  />
+                </TabsContent>
+              </Tabs>
             </div>
           }
           centerPanel={
