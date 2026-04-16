@@ -10,6 +10,7 @@ import { OperationPanel } from '@/components/operation-panel';
 import { Histogram } from '@/components/histogram';
 import { HistoryPanel, HistoryEntry, CompareView } from '@/components/history-panel';
 import { BubblesBackground } from '@/components/ui/bubbles-background';
+import { PixelInspector } from '@/components/pixel-inspector';
 import { PanelLayout } from '@/components/ui/panel-layout';
 import { 
   resize, rotate, flip, translate,
@@ -866,7 +867,7 @@ export default function ImageProcessorPage() {
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8 text-white/50 hover:text-white hover:bg-white/10"
-                  onClick={() => setZoom(z => Math.min(200, z + 10))}
+                  onClick={() => setZoom(z => Math.min(800, z + 10))}
                 >
                   <ZoomIn className="h-4 w-4" />
                 </Button>
@@ -1067,6 +1068,17 @@ export default function ImageProcessorPage() {
                           }}
                         />
                       </div>
+                    )}
+
+                    {/* 像素查看器 - 当缩放 >= 400% 时显示 */}
+                    {displayImage && zoom >= 400 && (
+                      <PixelInspector
+                        imageDataUrl={displayImage.dataUrl}
+                        imageWidth={displayImage.width}
+                        imageHeight={displayImage.height}
+                        zoom={zoom}
+                        containerRef={imageDisplayRef}
+                      />
                     )}
                   </div>
                 ) : (
