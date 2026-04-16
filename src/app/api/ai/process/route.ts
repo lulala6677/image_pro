@@ -84,15 +84,17 @@ export async function POST(request: NextRequest) {
         const expandedBase64 = expandedImageBuffer.toString('base64');
         const expandedDataUrl = `data:image/png;base64,${expandedBase64}`;
         
-        // 扩图 prompt - 强调只填充边缘区域
+        // 扩图 prompt - 强调只填充边缘区域，无边框
         const expandPrompt = prompt || 
-          `Outpainting: Seamlessly extend this image at the edges. ` +
+          `Outpainting: Extend this image seamlessly at all edges. ` +
           `CRITICAL INSTRUCTIONS: ` +
-          `1. The CENTER of the image (original content) must remain EXACTLY the same - do not modify it ` +
-          `2. Only generate new content at the EDGES where the image was extended ` +
-          `3. New content must match the style, lighting, colors, and composition of the original center ` +
-          `4. Create natural, coherent scene continuation at the expanded boundaries ` +
-          `5. The final image should look like a naturally wider version of the original`;
+          `1. The original content in the image must remain EXACTLY the same - do not modify it ` +
+          `2. The transparent or blank areas at the edges need to be filled with natural content ` +
+          `3. There must be NO VISIBLE BORDER or line between original and new content ` +
+          `4. Create completely seamless transitions at all boundaries ` +
+          `5. New content must perfectly match the style, lighting, colors, textures, and composition ` +
+          `6. The final image should look like it was originally captured at this wider size ` +
+          `7. Fill every pixel of the expanded areas naturally`;
 
         const response = await client.generate({
           prompt: expandPrompt,
@@ -177,17 +179,19 @@ export async function POST(request: NextRequest) {
         const directionNames: Record<string, string> = {
           left: 'left side',
           right: 'right side',
-          top: 'top',
-          bottom: 'bottom',
-          all: 'all edges'
+          top: 'top and upper area',
+          bottom: 'bottom and lower area',
+          all: 'all edges and corners'
         };
         
         const expandPrompt = prompt || 
-          `Outpainting: Extend the image at the ${directionNames[direction] || 'edges'}. ` +
-          `CRITICAL: The ORIGINAL CONTENT in the center must stay EXACTLY the same. ` +
-          `Generate new natural content only at the ${directionNames[direction] || 'edges'} ` +
-          `that matches the style, colors, lighting, and composition. ` +
-          `Create seamless scene continuation.`;
+          `Outpainting: Seamlessly extend the image at the ${directionNames[direction] || 'edges'}. ` +
+          `CRITICAL: ` +
+          `1. The ORIGINAL CONTENT in the center must stay EXACTLY the same ` +
+          `2. NO VISIBLE BORDER or line between original and new content ` +
+          `3. Create perfectly seamless transitions at the boundaries ` +
+          `4. Fill the expanded areas naturally to match style, colors, lighting, and composition ` +
+          `5. The final result should look like it was originally captured at this size`;
 
         const response = await client.generate({
           prompt: expandPrompt,
@@ -359,51 +363,46 @@ async function createExpandedCanvas(
   origHeight: number,
   config: ExpandConfig
 ): Promise<Buffer> {
-  // 动态导入 sharp（如果可用）
   try {
     const sharp = (await import('sharp')).default;
     
     const newWidth = origWidth + config.expandLeft + config.expandRight;
     const newHeight = origHeight + config.expandTop + config.expandBottom;
     
-    // 读取原始图片
-    const originalImage = sharp(originalBuffer);
-    const metadata = await originalImage.metadata();
-    
     // 计算原图在新画布中的位置
     const left = config.expandLeft;
     const top = config.expandTop;
     
-    // 使用 composite 将原图放置在扩展画布的中心
+    // 获取原图边缘的像素颜色用于填充扩展区域
+    // 提取原图边缘的一列/一行像素
+    const originalImage = sharp(originalBuffer);
+    const metadata = await originalImage.metadata();
+    
+    // 使用镜像填充来创建自然的边缘扩展
+    // 先将原图放在灰色背景上，然后让 AI 填充
     const expandedBuffer = await sharp({
       create: {
         width: newWidth,
         height: newHeight,
         channels: 4,
-        background: { r: 128, g: 128, b: 128, alpha: 1 }
+        background: { r: 0, g: 0, b: 0, alpha: 0 }  // 使用透明背景
       }
     })
     .composite([
       {
         input: originalBuffer,
         left: left,
-        top: top
+        top: top,
+        blend: 'over'
       }
     ])
+    .ensureAlpha()
     .png()
     .toBuffer();
     
     return expandedBuffer;
   } catch (error) {
-    // 如果 sharp 不可用，使用 canvas（浏览器端处理）
-    console.warn('Sharp not available, using fallback');
-    
-    const newWidth = origWidth + config.expandLeft + config.expandRight;
-    const newHeight = origHeight + config.expandTop + config.expandBottom;
-    
-    // 返回原始 buffer，让客户端处理
-    // 实际上在服务端我们用 base64 返回
-    const base64 = originalBuffer.toString('base64');
-    return Buffer.from(`data:image/png;base64,${base64}`);
+    console.error('Sharp processing error:', error);
+    throw error;
   }
 }
