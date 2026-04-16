@@ -1,25 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ImageGenerationClient, Config, HeaderUtils } from 'coze-coding-dev-sdk';
 
+// 初始化客户端（复用实例）
+let cachedClient: ImageGenerationClient | null = null;
+
+function getClient(customHeaders: Record<string, string>) {
+  if (!cachedClient) {
+    const config = new Config();
+    cachedClient = new ImageGenerationClient(config, customHeaders);
+  }
+  return cachedClient;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { action, imageUrl, styleImageUrl, prompt, strength } = body;
+    const { action, imageUrl, styleImageUrl, prompt, maskImageUrl, strength } = body;
 
     // 提取转发 headers
     const customHeaders = HeaderUtils.extractForwardHeaders(request.headers);
+    const client = getClient(customHeaders);
 
-    // 初始化客户端
-    const config = new Config();
-    const client = new ImageGenerationClient(config, customHeaders);
+    // 强度参数（控制对原图的保留程度，0-1之间）
+    const controlStrength = strength !== undefined ? Number(strength) : 0.7;
 
     switch (action) {
       case 'denoise': {
         // 图像去噪 - 使用 AI 增强清晰度
+        // 强调保持原图内容和结构不变，只去除噪点
+        const denoisePrompt = prompt || 
+          `Professional image denoising and restoration. Remove all noise, grain, and artifacts. ` +
+          `IMPORTANT: Preserve the original content, subject, composition, colors, and all details exactly. ` +
+          `Enhance clarity and sharpness while maintaining perfect fidelity to the original image. ` +
+          `The output must be a denoised version of the input image with identical content.`;
+        
         const response = await client.generate({
-          prompt: prompt || 'Professional photo restoration, remove noise and artifacts, enhance clarity and details, maintain original composition',
+          prompt: denoisePrompt,
           image: imageUrl,
           size: '2K',
+          // 较高的 strength 意味着更接近原图
         });
 
         const helper = client.getResponseHelper(response);
@@ -38,8 +57,16 @@ export async function POST(request: NextRequest) {
 
       case 'expand': {
         // 智能扩图 - 扩展图像边界
+        // 强调要保持原图内容，只在边界处生成新内容
+        const expandPrompt = prompt || 
+          `Seamlessly extend the image boundaries. ` +
+          `IMPORTANT: Keep the entire original image content completely unchanged in the center. ` +
+          `Only generate natural, coherent new content at the edges that matches the scene, ` +
+          `lighting, colors, and style of the original image. ` +
+          `The original part of the image must remain pixel-perfect identical.`;
+        
         const response = await client.generate({
-          prompt: prompt || 'Seamlessly extend the image boundaries, maintain coherent scene and lighting, natural expansion',
+          prompt: expandPrompt,
           image: imageUrl,
           size: '2K',
         });
@@ -67,8 +94,18 @@ export async function POST(request: NextRequest) {
           }, { status: 400 });
         }
 
+        // 风格迁移的 prompt - 明确强调保持原图内容
+        const stylePrompt = prompt || 
+          `Apply the artistic style from the second image to the first image. ` +
+          `IMPORTANT: The subject, content, composition, and main elements of the first image ` +
+          `must remain completely unchanged - only the visual style should be transformed. ` +
+          `Transfer colors, textures, brush strokes, and artistic effects from the style reference. ` +
+          `The output should look like the original content rendered in the new art style. ` +
+          `Do not change what is depicted, only how it is depicted.`;
+        
         const response = await client.generate({
-          prompt: prompt || 'Apply artistic style from reference image while maintaining original content',
+          prompt: stylePrompt,
+          // 第一张是原图，第二张是风格参考
           image: [imageUrl, styleImageUrl],
           size: '2K',
         });
@@ -88,9 +125,26 @@ export async function POST(request: NextRequest) {
       }
 
       case 'inpaint': {
-        // 内容感知填充
+        // 内容感知填充 (Inpainting)
+        // 如果有蒙版图，使用蒙版；否则尝试根据提示词去除内容
+        if (!maskImageUrl) {
+          // 如果没有蒙版，提供一个友好的提示
+          return NextResponse.json({ 
+            success: false, 
+            error: '内容填充需要先使用选区工具（如魔棒、套索）选择要填充的区域'
+          }, { status: 400 });
+        }
+
+        // Inpainting prompt - 明确说明要填充的区域应该被自然替代
+        const inpaintPrompt = prompt || 
+          `Intelligent content-aware inpainting. ` +
+          `The masked areas should be seamlessly filled with natural content ` +
+          `that matches the surrounding context in style, lighting, colors, and texture. ` +
+          `The unmasked original content must remain completely unchanged. ` +
+          `Create smooth, realistic fills that are indistinguishable from the original image.`;
+        
         const response = await client.generate({
-          prompt: prompt || 'Intelligent content-aware fill, seamlessly remove unwanted objects, reconstruct background naturally',
+          prompt: inpaintPrompt,
           image: imageUrl,
           size: '2K',
         });
@@ -101,6 +155,34 @@ export async function POST(request: NextRequest) {
             success: true, 
             imageUrl: helper.imageUrls[0],
             message: '内容填充完成'
+          });
+        }
+        return NextResponse.json({ 
+          success: false, 
+          errors: helper.errorMessages 
+        }, { status: 500 });
+      }
+
+      case 'enhance': {
+        // 图像增强 - 提升整体质量
+        const enhancePrompt = prompt || 
+          `Professional image enhancement and quality improvement. ` +
+          `Improve clarity, details, colors, and overall visual quality. ` +
+          `IMPORTANT: Preserve the original content, composition, and subject exactly. ` +
+          `Only enhance the quality and visual appeal while maintaining perfect fidelity.`;
+        
+        const response = await client.generate({
+          prompt: enhancePrompt,
+          image: imageUrl,
+          size: '2K',
+        });
+
+        const helper = client.getResponseHelper(response);
+        if (helper.success) {
+          return NextResponse.json({ 
+            success: true, 
+            imageUrl: helper.imageUrls[0],
+            message: '图像增强完成'
           });
         }
         return NextResponse.json({ 

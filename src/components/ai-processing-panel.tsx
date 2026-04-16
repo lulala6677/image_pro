@@ -43,28 +43,32 @@ export function AIProcessingPanel({
       name: '智能去噪',
       icon: Wand2,
       description: 'AI 一键去除图像噪点，增强清晰度',
-      color: 'from-violet-400 to-purple-500'
+      color: 'from-violet-400 to-purple-500',
+      tips: '保持原图内容不变，仅去除噪点'
     },
     {
       id: 'expand',
       name: '智能扩图',
       icon: Expand,
       description: '扩展图像边界，自然延展画面',
-      color: 'from-blue-400 to-cyan-500'
+      color: 'from-blue-400 to-cyan-500',
+      tips: '保持原图内容不变，只扩展边界'
     },
     {
       id: 'style_transfer',
       name: '风格迁移',
       icon: Palette,
       description: '上传艺术图，将风格应用到当前图片',
-      color: 'from-pink-400 to-rose-500'
+      color: 'from-pink-400 to-rose-500',
+      tips: '保持原图内容，只改变艺术风格'
     },
     {
       id: 'inpaint',
       name: '内容填充',
       icon: Eraser,
       description: '智能去除不需要的内容并自然填充',
-      color: 'from-amber-400 to-orange-500'
+      color: 'from-amber-400 to-orange-500',
+      tips: '需先使用选区工具选择要填充的区域'
     }
   ];
 
@@ -98,6 +102,16 @@ export function AIProcessingPanel({
 
       if (toolId === 'style_transfer' && styleImage) {
         requestBody.styleImageUrl = styleImage;
+      }
+
+      // 内容填充需要蒙版
+      if (toolId === 'inpaint') {
+        setError(null);
+        setActiveTool(null);
+        onProcessingChange(false);
+        // 显示需要蒙版的提示
+        setError('内容填充功能：\n1. 先使用左侧选区工具（魔棒/套索）选择要填充的区域\n2. 选择区域后，再点击此按钮进行填充');
+        return;
       }
 
       const response = await fetch('/api/ai/process', {
@@ -174,6 +188,9 @@ export function AIProcessingPanel({
                   <div className="flex-1">
                     <p className="text-sm font-medium text-white">{tool.name}</p>
                     <p className="text-xs text-white/50 mt-0.5">{tool.description}</p>
+                    {tool.tips && (
+                      <p className="text-xs text-white/30 mt-1">{tool.tips}</p>
+                    )}
                   </div>
                   {isActive && (
                     <Loader2 className="h-4 w-4 text-amber-400 animate-spin" />
@@ -234,8 +251,8 @@ export function AIProcessingPanel({
 
         {/* 错误提示 */}
         {error && (
-          <div className="p-3 rounded-lg bg-red-500/20 border border-red-500/30">
-            <p className="text-xs text-red-200">{error}</p>
+          <div className="p-3 rounded-lg bg-amber-500/20 border border-amber-500/30">
+            <p className="text-xs text-amber-100 whitespace-pre-line">{error}</p>
           </div>
         )}
       </div>
