@@ -48,6 +48,7 @@ export default function ImageProcessorPage() {
   const [zoom, setZoom] = useState(100);
   const [showReveal, setShowReveal] = useState(false); // 揭示动画状态
   const [showReplaceDialog, setShowReplaceDialog] = useState(false); // 更换图片弹窗
+  const [zoomInput, setZoomInput] = useState(''); // 缩放输入状态
   
   // 选区工具状态
   const [activeTool, setActiveTool] = useState<SelectionToolType>('none');
@@ -851,7 +852,7 @@ export default function ImageProcessorPage() {
           centerPanel={
             <div className="h-full w-full flex flex-col overflow-hidden bg-black/20">
               {/* 缩放控制 */}
-              <div className="flex items-center justify-center gap-3 py-3 border-b border-white/10 bg-black/40 backdrop-blur-xl flex-shrink-0">
+              <div className="flex items-center justify-center gap-3 py-3 px-16 border-b border-white/10 bg-black/40 backdrop-blur-xl flex-shrink-0 relative">
                 <Button
                   variant="ghost"
                   size="icon"
@@ -860,8 +861,31 @@ export default function ImageProcessorPage() {
                 >
                   <ZoomOut className="h-4 w-4" />
                 </Button>
-                <div className="px-4 py-1 rounded-full bg-white/5 border border-white/10">
-                  <span className="text-sm text-white/70 font-medium">{zoom}%</span>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="text"
+                    value={zoomInput || zoom.toString()}
+                    onChange={(e) => setZoomInput(e.target.value)}
+                    onBlur={() => {
+                      const val = parseInt(zoomInput);
+                      if (!isNaN(val) && val >= 10 && val <= 800) {
+                        setZoom(val);
+                      }
+                      setZoomInput('');
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        const val = parseInt(zoomInput);
+                        if (!isNaN(val) && val >= 10 && val <= 800) {
+                          setZoom(val);
+                        }
+                        setZoomInput('');
+                      }
+                    }}
+                    className="w-14 px-2 py-1 text-center text-sm text-white/70 font-medium bg-white/5 border border-white/10 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50"
+                    placeholder={zoom.toString()}
+                  />
+                  <span className="text-sm text-white/70 font-medium">%</span>
                 </div>
                 <Button
                   variant="ghost"
@@ -879,15 +903,11 @@ export default function ImageProcessorPage() {
                 >
                   <Maximize className="h-4 w-4" />
                 </Button>
-              </div>
-
-              {/* 图像显示区 */}
-              <div className="flex-1 min-h-0 overflow-auto flex items-center justify-center p-6 relative">
-                {/* 更换图片按钮 - 从左侧滑入动画 */}
+                {/* 更换图片按钮 - 固定在缩放栏右侧 */}
                 {displayImage && (
                   <button
                     onClick={() => setShowReplaceDialog(true)}
-                    className="absolute top-4 right-4 z-20 cursor-pointer animate-replace-button"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 cursor-pointer z-20"
                   >
                     <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-br from-orange-400/50 via-amber-300/40 to-orange-500/50 backdrop-blur-xl border border-white/20 text-white/90 hover:from-orange-400/60 hover:via-amber-400/50 hover:to-orange-500/60 hover:text-white hover:border-white/30 transition-all shadow-lg">
                       <RefreshCw className="h-3.5 w-3.5" />
@@ -895,7 +915,10 @@ export default function ImageProcessorPage() {
                     </div>
                   </button>
                 )}
-                
+              </div>
+
+              {/* 图像显示区 */}
+              <div className="flex-1 min-h-0 overflow-auto flex items-center justify-center p-6">
                 {displayImage ? (
                   <div
                     ref={imageDisplayRef}

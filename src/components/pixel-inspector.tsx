@@ -30,6 +30,7 @@ export function PixelInspector({
   const [cursorPos, setCursorPos] = useState<{ x: number; y: number } | null>(null);
   const [pixelData, setPixelData] = useState<ImageData | null>(null);
   const [isGrayscale, setIsGrayscale] = useState(false);
+  const [gridPixels, setGridPixels] = useState<PixelInfo[]>([]);
 
   // 计算像素查看器是否应该显示（缩放 >= 400%）
   const showInspector = zoom >= 400;
@@ -38,6 +39,7 @@ export function PixelInspector({
   useEffect(() => {
     if (!imageDataUrl || !showInspector) {
       setPixelData(null);
+      setGridPixels([]);
       return;
     }
 
@@ -61,14 +63,12 @@ export function PixelInspector({
         const r = data.data[i];
         const g = data.data[i + 1];
         const b = data.data[i + 2];
-        // 如果 R=G=B，则为灰度像素
         if (Math.abs(r - g) < 5 && Math.abs(g - b) < 5) {
           grayscaleCount++;
         }
         checked++;
       }
 
-      // 如果超过 95% 的像素是灰度，则认为是灰度图
       setIsGrayscale(grayscaleCount / checked > 0.95);
     };
     img.src = imageDataUrl;
@@ -94,6 +94,7 @@ export function PixelInspector({
     if (x < 0 || x >= imageWidth || y < 0 || y >= imageHeight) {
       setHoverPixel(null);
       setCursorPos(null);
+      setGridPixels([]);
       return;
     }
 
@@ -106,11 +107,35 @@ export function PixelInspector({
 
     setHoverPixel({ x, y, r, g, b, grayscale });
     setCursorPos({ x: e.clientX, y: e.clientY });
+
+    // 获取周围像素网格 (5x5)
+    const gridSize = 5;
+    const half = Math.floor(gridSize / 2);
+    const pixels: PixelInfo[] = [];
+
+    for (let dy = -half; dy <= half; dy++) {
+      for (let dx = -half; dx <= half; dx++) {
+        const px = x + dx;
+        const py = y + dy;
+
+        if (px >= 0 && px < imageWidth && py >= 0 && py < imageHeight) {
+          const idx = (py * pixelData.width + px) * 4;
+          const pr = pixelData.data[idx];
+          const pg = pixelData.data[idx + 1];
+          const pb = pixelData.data[idx + 2];
+          const gray = Math.round(0.299 * pr + 0.587 * pg + 0.114 * pb);
+          pixels.push({ x: px, y: py, r: pr, g: pg, b: pb, grayscale: gray });
+        }
+      }
+    }
+
+    setGridPixels(pixels);
   }, [showInspector, pixelData, imageWidth, imageHeight, containerRef]);
 
   const handleMouseLeave = useCallback(() => {
     setHoverPixel(null);
     setCursorPos(null);
+    setGridPixels([]);
   }, []);
 
   // 计算 HEX 值
@@ -119,9 +144,6 @@ export function PixelInspector({
   if (!showInspector) {
     return null;
   }
-
-  // 计算像素网格大小（每个像素的显示大小）
-  const pixelSize = zoom;
 
   return (
     <>
@@ -147,17 +169,27 @@ export function PixelInspector({
         />
       )}
 
-      {/* 像素信息悬浮框 */}
+      {/* 像素信息悬浮框 - 固定在视口右下角 */}
       {hoverPixel && cursorPos && (
         <div
           className="fixed z-[100] pointer-events-none"
           style={{
-            left: Math.min(cursorPos.x + 20, window.innerWidth - 200),
-            top: Math.min(cursorPos.y + 20, window.innerHeight - 140),
+            right: '20px',
+            bottom: '20px',
+            left: 'auto',
+            top: 'auto',
           }}
         >
-          <div className="bg-black/95 backdrop-blur-xl rounded-xl border border-white/30 shadow-xl p-3 min-w-[150px]">
-            {/* 颜色预览和标题 */}
+          <div className="bg-black/95 backdrop-blur-xl rounded-xl border border-white/30 shadow-xl p-3 w-[280px]">
+            {/* 标题 */}
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] text-white/60 font-mono">像素信息</span>
+              <span className="text-[10px] text-white/40 font-mono">
+                {zoom}% • {Math.round(zoom / 100)}px
+              </span>
+            </div>
+
+            {/* 颜色预览和当前像素 */}
             <div className="flex items-center gap-2 mb-2">
               <div
                 className="w-10 h-10 rounded-lg border border-white/20 flex-shrink-0 shadow-inner"
@@ -168,64 +200,70 @@ export function PixelInspector({
                 }}
               />
               <div>
-                <div className="text-[10px] text-white/50 font-mono">像素坐标</div>
-                <div className="text-[13px] text-white font-bold font-mono">
-                  ({hoverPixel.x}, {hoverPixel.y})
+                <div className="text-[10px] text-white/50 font-mono">当前像素 ({hoverPixel.x}, {hoverPixel.y})</div>
+                {!isGrayscale && (
+                  <div className="text-[12px] text-white font-bold font-mono">
+                    R:{hoverPixel.r} G:{hoverPixel.g} B:{hoverPixel.b}
+                  </div>
+                )}
+                <div className="text-[12px] text-white font-bold font-mono">
+                  Gray: {hoverPixel.grayscale}
                 </div>
               </div>
             </div>
 
-            {/* 数值显示 */}
-            <div className="space-y-1.5">
-              {isGrayscale ? (
-                <div className="flex items-center justify-between bg-white/5 rounded-lg px-3 py-2">
-                  <span className="text-[11px] text-white/60 font-mono">灰度值</span>
-                  <span className="text-[13px] text-white font-bold font-mono">
-                    {hoverPixel.grayscale}
-                  </span>
-                </div>
-              ) : (
-                <div className="grid grid-cols-3 gap-1 bg-white/5 rounded-lg p-2">
-                  <div className="text-center">
-                    <div className="text-[9px] text-red-400 font-mono">R</div>
-                    <div className="text-[13px] text-white font-bold font-mono">{hoverPixel.r}</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-[9px] text-green-400 font-mono">G</div>
-                    <div className="text-[13px] text-white font-bold font-mono">{hoverPixel.g}</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-[9px] text-blue-400 font-mono">B</div>
-                    <div className="text-[13px] text-white font-bold font-mono">{hoverPixel.b}</div>
-                  </div>
-                </div>
-              )}
-
-              {/* HEX 值 */}
-              <div className="flex items-center justify-between bg-white/5 rounded-lg px-3 py-2">
-                <span className="text-[11px] text-white/60 font-mono">HEX</span>
-                <span className="text-[12px] text-white font-bold font-mono">
-                  #{isGrayscale
-                    ? toHex(hoverPixel.grayscale) + toHex(hoverPixel.grayscale) + toHex(hoverPixel.grayscale)
-                    : toHex(hoverPixel.r) + toHex(hoverPixel.g) + toHex(hoverPixel.b)}
-                </span>
-              </div>
-
-              {/* 灰度值（始终显示） */}
-              <div className="flex items-center justify-between bg-white/5 rounded-lg px-3 py-2">
-                <span className="text-[11px] text-white/60 font-mono">灰度值</span>
-                <span className="text-[13px] text-white font-bold font-mono">
-                  {hoverPixel.grayscale}
-                </span>
-              </div>
-            </div>
-
-            {/* 提示 */}
-            <div className="mt-2 pt-2 border-t border-white/10 text-center">
-              <span className="text-[9px] text-white/40 font-mono">
-                当前缩放: {zoom}% ({Math.round(pixelSize)}px/像素)
+            {/* HEX 值 */}
+            <div className="flex items-center justify-between bg-white/5 rounded-lg px-3 py-2 mb-2">
+              <span className="text-[11px] text-white/60 font-mono">HEX</span>
+              <span className="text-[12px] text-white font-bold font-mono">
+                #{isGrayscale
+                  ? toHex(hoverPixel.grayscale) + toHex(hoverPixel.grayscale) + toHex(hoverPixel.grayscale)
+                  : toHex(hoverPixel.r) + toHex(hoverPixel.g) + toHex(hoverPixel.b)}
               </span>
             </div>
+
+            {/* 像素网格 */}
+            {gridPixels.length > 0 && (
+              <div className="mt-2">
+                <div className="text-[10px] text-white/50 font-mono mb-1">周围像素 (5x5)</div>
+                <div className="grid grid-cols-5 gap-0.5">
+                  {gridPixels.map((pixel, index) => {
+                    const isCenter = pixel.x === hoverPixel.x && pixel.y === hoverPixel.y;
+                    return (
+                      <div
+                        key={`${pixel.x}-${pixel.y}`}
+                        className={`w-7 h-7 rounded border ${
+                          isCenter
+                            ? 'border-2 border-yellow-400 shadow-lg'
+                            : 'border border-white/10'
+                        }`}
+                        style={{
+                          backgroundColor: isGrayscale
+                            ? `rgb(${pixel.grayscale}, ${pixel.grayscale}, ${pixel.grayscale})`
+                            : `rgb(${pixel.r}, ${pixel.g}, ${pixel.b})`
+                        }}
+                        title={`(${pixel.x}, ${pixel.y}) Gray: ${pixel.grayscale}`}
+                      >
+                        <div className="w-full h-full flex items-center justify-center">
+                          <span className={`text-[8px] font-mono font-bold ${
+                            pixel.grayscale > 127 ? 'text-black' : 'text-white'
+                          }`}>
+                            {pixel.grayscale}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* 灰度值提示 */}
+            {isGrayscale && (
+              <div className="mt-2 pt-2 border-t border-white/10 text-center">
+                <span className="text-[9px] text-white/40 font-mono">灰度图像</span>
+              </div>
+            )}
           </div>
         </div>
       )}
