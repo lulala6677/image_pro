@@ -8,8 +8,6 @@ import { ImageUploader, ImageFile } from '@/components/image-uploader';
 import { ImageSourceDialog } from '@/components/image-source-dialog';
 import { OperationPanel } from '@/components/operation-panel';
 import { Histogram } from '@/components/histogram';
-import { PixelViewer } from '@/components/pixel-viewer';
-import { WaveformVectorscope } from '@/components/waveform-vectorscope';
 import { HistoryPanel, HistoryEntry, CompareView } from '@/components/history-panel';
 import { BubblesBackground } from '@/components/ui/bubbles-background';
 import { PanelLayout } from '@/components/ui/panel-layout';
@@ -80,18 +78,6 @@ export default function ImageProcessorPage() {
     screenY: number;
   } | null>(null);
   
-  // 实时像素信息（用于缩放查看器）
-  const [hoverPixelInfo, setHoverPixelInfo] = useState<{
-    x: number;
-    y: number;
-    r: number;
-    g: number;
-    b: number;
-    screenX: number;
-    screenY: number;
-  } | null>(null);
-  const pixelDataCacheRef = useRef<ImageData | null>(null);
-  
   // 显示的图像
   const displayImage = processedImage || currentImage;
   
@@ -159,11 +145,6 @@ export default function ImageProcessorPage() {
   const getImagePixelData = useCallback(async (): Promise<ImageData | null> => {
     if (!displayImage) return null;
     
-    // 如果已经有缓存，直接返回
-    if (pixelDataCacheRef.current) {
-      return pixelDataCacheRef.current;
-    }
-    
     return new Promise((resolve) => {
       const img = new Image();
       img.onload = () => {
@@ -172,47 +153,11 @@ export default function ImageProcessorPage() {
         canvas.height = displayImage.height;
         const ctx = canvas.getContext('2d')!;
         ctx.drawImage(img, 0, 0);
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        pixelDataCacheRef.current = imageData;
-        resolve(imageData);
+        resolve(ctx.getImageData(0, 0, canvas.width, canvas.height));
       };
       img.src = displayImage.dataUrl;
     });
   }, [displayImage]);
-  
-  // 清除像素数据缓存
-  useEffect(() => {
-    pixelDataCacheRef.current = null;
-  }, [displayImage]);
-  
-  // 获取实时像素信息（用于高倍缩放查看）
-  const updateHoverPixelInfo = useCallback(async (screenX: number, screenY: number) => {
-    if (!displayImage) return;
-    
-    const pixelData = await getImagePixelData();
-    if (!pixelData) return;
-    
-    const coords = screenToImageCoords(screenX, screenY);
-    if (!coords) {
-      setHoverPixelInfo(null);
-      return;
-    }
-    
-    const { x, y } = coords;
-    
-    // 边界检查
-    if (x < 0 || x >= pixelData.width || y < 0 || y >= pixelData.height) {
-      setHoverPixelInfo(null);
-      return;
-    }
-    
-    const pixelIndex = (y * pixelData.width + x) * 4;
-    const r = pixelData.data[pixelIndex];
-    const g = pixelData.data[pixelIndex + 1];
-    const b = pixelData.data[pixelIndex + 2];
-    
-    setHoverPixelInfo({ x, y, r, g, b, screenX, screenY });
-  }, [displayImage, getImagePixelData, screenToImageCoords]);
   
   // 魔棒工具点击处理
   const handleWandClick = useCallback(async (x: number, y: number, screenX: number, screenY: number) => {
@@ -814,49 +759,6 @@ export default function ImageProcessorPage() {
         </div>
       )}
       
-      {/* 实时像素信息显示 - 缩放800%以上时显示 */}
-      {hoverPixelInfo && zoom >= 800 && activeTool === 'none' && (
-        <div
-          className="fixed z-[100] pointer-events-none"
-          style={{
-            left: hoverPixelInfo.screenX + 15,
-            top: hoverPixelInfo.screenY + 15,
-            transform: 'translateZ(0)',
-          }}
-        >
-          <div className="bg-black/95 backdrop-blur-xl rounded-xl border border-white/30 shadow-xl p-2.5 min-w-[100px]">
-            <div className="flex items-start gap-2">
-              {/* 颜色预览块 - 正方形 */}
-              <div 
-                className="w-7 h-7 rounded-md border border-white/20 flex-shrink-0 shadow-inner"
-                style={{ backgroundColor: `rgb(${hoverPixelInfo.r}, ${hoverPixelInfo.g}, ${hoverPixelInfo.b})` }}
-              />
-              
-              <div className="flex-1 min-w-0">
-                {/* 坐标 */}
-                <div className="text-[11px] text-white/70 font-bold font-mono leading-tight antialiased tracking-wide">
-                  {hoverPixelInfo.x}, {hoverPixelInfo.y}
-                </div>
-                
-                {/* HEX 值 */}
-                <div className="text-[11px] text-white font-bold font-mono leading-tight mt-1 antialiased tracking-wide">
-                  #{hoverPixelInfo.r.toString(16).padStart(2, '0').toUpperCase()}
-                  {hoverPixelInfo.g.toString(16).padStart(2, '0').toUpperCase()}
-                  {hoverPixelInfo.b.toString(16).padStart(2, '0').toUpperCase()}
-                </div>
-              </div>
-            </div>
-            
-            {/* RGB 值 - 紧凑显示 */}
-            <div className="text-[11px] text-white font-bold font-mono mt-2 flex justify-between antialiased tracking-wide">
-              <span><span className="text-red-400">R</span> {hoverPixelInfo.r}</span>
-              <span><span className="text-green-400">G</span> {hoverPixelInfo.g}</span>
-              <span><span className="text-blue-400">B</span> {hoverPixelInfo.b}</span>
-            </div>
-          </div>
-        </div>
-      )}
-      
       {/* 顶部工具栏 */}
       <header className="relative z-10 px-6 py-4 flex items-center justify-between flex-shrink-0 border-b border-white/10 bg-black/50 backdrop-blur-xl">
         <div className="flex items-center gap-3">
@@ -1019,13 +921,6 @@ export default function ImageProcessorPage() {
                       }
                     }}
                     onMouseMove={(e) => {
-                      // 高倍缩放时更新实时像素信息
-                      if (zoom >= 800) {
-                        updateHoverPixelInfo(e.clientX, e.clientY);
-                      } else {
-                        setHoverPixelInfo(null);
-                      }
-                      
                       if (activeTool === 'lasso' && isDrawing) {
                         const coords = screenToImageCoords(e.clientX, e.clientY);
                         if (coords) handleLassoMove(coords.x, coords.y);
@@ -1039,7 +934,6 @@ export default function ImageProcessorPage() {
                       else if (activeTool === 'rectangle' || activeTool === 'ellipse') handleShapeEnd();
                     }}
                     onMouseLeave={() => {
-                      setHoverPixelInfo(null);
                       if (activeTool === 'lasso' && isDrawing) handleLassoEnd();
                       else if ((activeTool === 'rectangle' || activeTool === 'ellipse') && isDrawing) handleShapeEnd();
                     }}
@@ -1195,18 +1089,6 @@ export default function ImageProcessorPage() {
                     直方图
                   </TabsTrigger>
                   <TabsTrigger 
-                    value="waveform" 
-                    className="text-xs data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500/30 data-[state=active]:to-cyan-500/30 data-[state=active]:text-white text-white/50"
-                  >
-                    波形/矢量
-                  </TabsTrigger>
-                  <TabsTrigger 
-                    value="pixel" 
-                    className="text-xs data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500/30 data-[state=active]:to-cyan-500/30 data-[state=active]:text-white text-white/50"
-                  >
-                    像素
-                  </TabsTrigger>
-                  <TabsTrigger 
                     value="history" 
                     className="text-xs data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500/30 data-[state=active]:to-cyan-500/30 data-[state=active]:text-white text-white/50"
                   >
@@ -1215,12 +1097,6 @@ export default function ImageProcessorPage() {
                 </TabsList>
                 <TabsContent value="histogram" className="flex-1 min-h-0 m-0 overflow-auto">
                   <Histogram dataUrl={displayImage?.dataUrl || ''} />
-                </TabsContent>
-                <TabsContent value="waveform" className="flex-1 min-h-0 m-0 overflow-auto p-4">
-                  <WaveformVectorscope imageDataUrl={displayImage?.dataUrl || null} />
-                </TabsContent>
-                <TabsContent value="pixel" className="flex-1 min-h-0 m-0 overflow-auto p-4">
-                  <PixelViewer imageDataUrl={displayImage?.dataUrl || null} zoom={zoom} />
                 </TabsContent>
                 <TabsContent value="history" className="flex-1 min-h-0 m-0 overflow-auto">
                   <HistoryPanel
