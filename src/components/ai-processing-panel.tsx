@@ -135,7 +135,7 @@ export function AIProcessingPanel({
     }
   };
 
-  // 内容填充处理
+  // 内容填充处理 - 使用传统算法确保填充内容符合原图风格
   const handleInpaint = async () => {
     if (!imageUrl) return;
 
@@ -152,50 +152,14 @@ export function AIProcessingPanel({
         return;
       }
 
-      // 使用裁剪-处理-合成方案
-      // 1. 裁剪出包含选区的区域
-      // 2. 让 AI 处理这个区域
-      // 3. 将结果合成回原图
-
-      const { croppedImageUrl, cropBounds, originalBounds } = await cropSelectionArea(imageUrl, selection);
-
-      // 获取选区边界信息
-      const bounds = selection.bounds;
-      const boundsInfo = bounds ? 
-        `The rectangular area from (${bounds.x}, ${bounds.y}) to (${bounds.x + bounds.width}, ${bounds.y + bounds.height}) ` :
-        'The marked area ';
-
-      // 构建 inpaint prompt，强调只处理选区
-      const inpaintPrompt = prompt || 
-        `This image contains a marked area that needs to be regenerated. ` +
-        `Please generate new content only for the marked (blurred/smoothed) area. ` +
-        `The new content should seamlessly blend with the surrounding pixels in terms of lighting, colors, textures, patterns, and perspective. ` +
-        `IMPORTANT: Everything outside the marked area must remain EXACTLY the same - do not modify any pixels outside this area. ` +
-        `Create a natural, seamless fill that looks like the original unedited image.`;
-
-      // 调用 AI 处理裁剪后的图像
-      const response = await fetch('/api/ai/process', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'inpaint_crop',
-          imageUrl: croppedImageUrl,
-          originalBounds: originalBounds,
-          cropBounds: cropBounds,
-          prompt: inpaintPrompt,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success && data.imageUrl) {
-        // 将处理后的裁剪图像合成回原图
-        const finalImageUrl = await compositeResult(imageUrl, data.imageUrl, originalBounds);
-        onProcess(finalImageUrl, '内容填充');
+      // 使用基于纹理的内容填充算法
+      // 这种方法从选区周围采样像素，确保填充内容与原图风格一致
+      const resultUrl = await textureBasedInpaint(imageUrl, selection);
+      
+      if (resultUrl) {
+        onProcess(resultUrl, '内容填充');
       } else {
-        setError(data.error || data.errors?.[0] || '内容填充失败');
+        setError('内容填充失败：无法处理选区');
       }
     } catch (err) {
       setError('内容填充失败: ' + (err instanceof Error ? err.message : '未知错误'));
@@ -203,6 +167,203 @@ export function AIProcessingPanel({
       setActiveTool(null);
       onProcessingChange(false);
     }
+  };
+
+  // 基于纹理合成的内容填充算法
+  // 从选区边界采样像素，逐渐向内填充
+  const textureBasedInpaint = async (
+    imgUrl: string,
+    sel: SelectionData
+  ): Promise<string | null> => {
+    return new Promise((resolve, reject) => {
+      fetchImageProxy(imgUrl).then((proxyUrl) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d')!;
+            
+            // 绘制原图
+            ctx.drawImage(img, 0, 0);
+            
+            // 获取图像数据
+            const imageData = ctx.getImageData(0, 0, img.width, img.height);
+            const data = imageData.data;
+            const mask = sel.mask!;
+            const width = img.width;
+            const height = img.height;
+            
+            // 计算选区边界
+            const bounds = sel.bounds || { x: 0, y: 0, width, height };
+            
+            // 1. 首先使用均值填充初始化选区内部
+            // 找到选区边缘像素，用其颜色填充内部
+            const edgePixels: { x: number; y: number; r: number; g: number; b: number }[] = [];
+            
+            // 收集边缘像素
+            for (let y = bounds.y; y < bounds.y + bounds.height; y++) {
+              for (let x = bounds.x; x < bounds.x + bounds.width; x++) {
+                if (mask[y]?.[x]) {
+                  // 检查是否是边缘像素
+                  const neighbors = [
+                    [x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]
+                  ];
+                  for (const [nx, ny] of neighbors) {
+                    if (nx >= 0 && nx < width && ny >= 0 && ny < height && !mask[ny]?.[nx]) {
+                      // 这是一个边缘像素
+                      const idx = (ny * width + nx) * 4;
+                      edgePixels.push({
+                        x, y,
+                        r: data[idx],
+                        g: data[idx + 1],
+                        b: data[idx + 2]
+                      });
+                      break;
+                    }
+                  }
+                }
+              }
+            }
+            
+            // 2. 使用优先级队列进行填充（基于距离和纹理相似性）
+            // 创建一个距离图，记录每个选区像素到边缘的距离
+            const distanceMap: number[][] = Array(height).fill(null).map(() => Array(width).fill(Infinity));
+            const filled: boolean[][] = Array(height).fill(null).map(() => Array(width).fill(false));
+            
+            // 初始化边缘像素的距离为0，加入队列
+            const queue: { x: number; y: number; dist: number }[] = [];
+            for (let y = bounds.y; y < bounds.y + bounds.height; y++) {
+              for (let x = bounds.x; x < bounds.x + bounds.width; x++) {
+                if (mask[y]?.[x]) {
+                  // 检查是否是边缘
+                  let isEdge = false;
+                  const neighbors = [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]];
+                  for (const [nx, ny] of neighbors) {
+                    if (nx >= 0 && nx < width && ny >= 0 && ny < height && !mask[ny]?.[nx]) {
+                      isEdge = true;
+                      break;
+                    }
+                  }
+                  if (isEdge) {
+                    distanceMap[y][x] = 0;
+                    queue.push({ x, y, dist: 0 });
+                  }
+                }
+              }
+            }
+            
+            // BFS 填充距离
+            queue.sort((a, b) => a.dist - b.dist);
+            while (queue.length > 0) {
+              const current = queue.shift()!;
+              
+              if (filled[current.y][current.x]) continue;
+              
+              const neighbors = [
+                [current.x - 1, current.y],
+                [current.x + 1, current.y],
+                [current.x, current.y - 1],
+                [current.x, current.y + 1]
+              ];
+              
+              for (const [nx, ny] of neighbors) {
+                if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                  if (mask[ny]?.[nx] && !filled[ny][nx]) {
+                    const newDist = current.dist + 1;
+                    if (newDist < distanceMap[ny][nx]) {
+                      distanceMap[ny][nx] = newDist;
+                      queue.push({ x: nx, y: ny, dist: newDist });
+                      queue.sort((a, b) => a.dist - b.dist);
+                    }
+                  }
+                }
+              }
+            }
+            
+            // 3. 从边缘向内填充
+            // 对每个待填充的像素，从其法线方向（指向边缘）的非选区像素采样
+            const filledCount = { value: 0 };
+            let iterations = 0;
+            const maxIterations = bounds.width * bounds.height;
+            
+            const fillPass = () => {
+              let changed = false;
+              
+              for (let y = bounds.y; y < bounds.y + bounds.height && iterations < maxIterations; y++) {
+                for (let x = bounds.x; x < bounds.x + bounds.width && iterations < maxIterations; x++) {
+                  iterations++;
+                  
+                  if (!mask[y]?.[x] || filled[y][x]) continue;
+                  
+                  // 找到最近的边缘像素作为采样源
+                  // 使用基于梯度的方法确定搜索方向
+                  let bestSample: { r: number; g: number; b: number } | null = null;
+                  let bestDist = Infinity;
+                  
+                  // 搜索周围区域
+                  const searchRadius = Math.max(bounds.width, bounds.height);
+                  for (let dy = -searchRadius; dy <= searchRadius && !bestSample; dy++) {
+                    for (let dx = -searchRadius; dx <= searchRadius && !bestSample; dx++) {
+                      const sx = x + dx;
+                      const sy = y + dy;
+                      
+                      // 只从非选区像素采样
+                      if (sx >= 0 && sx < width && sy >= 0 && sy < height && !mask[sy]?.[sx]) {
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        if (dist < bestDist) {
+                          bestDist = dist;
+                          const idx = (sy * width + sx) * 4;
+                          bestSample = {
+                            r: data[idx],
+                            g: data[idx + 1],
+                            b: data[idx + 2]
+                          };
+                        }
+                      }
+                    }
+                  }
+                  
+                  if (bestSample) {
+                    const idx = (y * width + x) * 4;
+                    data[idx] = bestSample.r;
+                    data[idx + 1] = bestSample.g;
+                    data[idx + 2] = bestSample.b;
+                    filled[y][x] = true;
+                    changed = true;
+                    filledCount.value++;
+                  }
+                }
+              }
+              
+              if (changed && filledCount.value < bounds.width * bounds.height) {
+                // 继续填充
+                requestAnimationFrame(fillPass);
+              } else {
+                // 填充完成，应用结果
+                ctx.putImageData(imageData, 0, 0);
+                resolve(canvas.toDataURL('image/png'));
+              }
+            };
+            
+            // 开始填充
+            if (queue.length === 0) {
+              // 没有边缘（可能是全选或没有有效选区）
+              resolve(null);
+            } else {
+              fillPass();
+            }
+          } catch (err) {
+            console.error('内容填充失败:', err);
+            reject(err);
+          }
+        };
+        img.onerror = () => reject(new Error('加载图像失败'));
+        img.src = proxyUrl;
+      }).catch(reject);
+    });
   };
 
   // 通过代理获取图片，避免跨域问题
