@@ -1,82 +1,68 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { Sparkles, Wand2, Expand, Palette, Eraser, Cpu, Zap, Loader2, Upload } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { Sparkles, Wand2, Expand, Palette, Loader2, Upload } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Slider } from '@/components/ui/slider';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-
-// 选区数据类型
-interface SelectionData {
-  mask?: boolean[][];
-  bounds?: { x: number; y: number; width: number; height: number };
-}
 
 interface AIProcessingPanelProps {
   imageUrl?: string;
   onProcess: (resultUrl: string, operation: string) => void;
   isProcessing: boolean;
   onProcessingChange: (processing: boolean) => void;
-  selection?: SelectionData | null;
+  selection?: { mask?: boolean[][]; bounds?: { x: number; y: number; width: number; height: number } } | null;
 }
+
+// AI 工具配置
+const aiTools = [
+  {
+    id: 'denoise',
+    name: '智能去噪',
+    icon: Wand2,
+    color: 'from-violet-500/80 to-purple-500/80',
+    colorBorder: 'border-violet-400/50',
+    colorShadow: 'shadow-violet-500/20',
+  },
+  {
+    id: 'expand',
+    name: '智能扩图',
+    icon: Expand,
+    color: 'from-blue-500/80 to-cyan-500/80',
+    colorBorder: 'border-cyan-400/50',
+    colorShadow: 'shadow-cyan-500/20',
+  },
+  {
+    id: 'style_transfer',
+    name: '风格迁移',
+    icon: Palette,
+    color: 'from-pink-500/80 to-rose-500/80',
+    colorBorder: 'border-pink-400/50',
+    colorShadow: 'shadow-pink-500/20',
+  },
+];
 
 export function AIProcessingPanel({
   imageUrl,
   onProcess,
   isProcessing,
   onProcessingChange,
-  selection
 }: AIProcessingPanelProps) {
   const [activeTool, setActiveTool] = useState<string | null>(null);
-  const [prompt, setPrompt] = useState('');
+  const [expandScale, setExpandScale] = useState([1.5]);
   const [styleImage, setStyleImage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [gpuStatus, setGpuStatus] = useState<'checking' | 'available' | 'unavailable'>('checking');
-  const [expandScale, setExpandScale] = useState(1.5);
   const styleInputRef = useRef<HTMLInputElement>(null);
 
-  // 检查 WebGPU 可用性
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      // @ts-ignore
-      const webgpu = navigator.gpu;
-      if (webgpu) {
-        setGpuStatus('available');
-      } else {
-        setGpuStatus('unavailable');
-      }
-    }
-  }, []);
-
-  const aiTools = [
-    {
-      id: 'denoise',
-      name: '智能去噪',
-      icon: Wand2,
-      description: '去除噪点，增强清晰度',
-      color: 'from-violet-400 to-purple-500'
-    },
-    {
-      id: 'expand',
-      name: '智能扩图',
-      icon: Expand,
-      description: '扩展画面边界',
-      color: 'from-blue-400 to-cyan-500'
-    },
-    {
-      id: 'style_transfer',
-      name: '风格迁移',
-      icon: Palette,
-      description: '应用艺术风格',
-      color: 'from-pink-400 to-rose-500'
-    },
-    {
-      id: 'inpaint',
-      name: '内容填充',
-      icon: Eraser,
-      description: '去除并自然填充',
-      color: 'from-amber-400 to-orange-500'
-    }
-  ];
-
+  // 风格图上传
   const handleStyleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -97,12 +83,13 @@ export function AIProcessingPanel({
     onProcessingChange(true);
 
     try {
-      const expandPrompt = prompt || 
-        `Extend this image outward to create a wider, expanded view. ` +
-        `The original content in the center must remain unchanged. ` +
-        `Generate new natural content at the edges that seamlessly continues the scene. ` +
-        `Match the lighting, colors, textures, and atmosphere of the original image. ` +
-        `The result should look like the original scene captured with a wider angle lens.`;
+      const expandPrompt = 
+        `Extend and expand this image outward to create a wider view. ` +
+        `IMPORTANT: Keep the original content in the center completely unchanged. ` +
+        `Only generate new natural content at the edges to seamlessly expand the scene. ` +
+        `Match the lighting, colors, atmosphere, textures, and perspective of the original image. ` +
+        `The new expanded areas should look like a natural continuation of the original scene. ` +
+        `The overall composition should look like one coherent image with a wider field of view.`;
 
       const response = await fetch('/api/ai/process', {
         method: 'POST',
@@ -131,395 +118,9 @@ export function AIProcessingPanel({
     }
   };
 
-  // 内容填充处理 - 使用传统算法确保填充内容符合原图风格
-  const handleInpaint = async () => {
-    if (!imageUrl) return;
-
-    setActiveTool('inpaint');
-    setError(null);
-    onProcessingChange(true);
-
-    try {
-      // 检查是否有选区
-      if (!selection || !selection.mask || selection.mask.length === 0) {
-        setError('请先用选区工具（魔棒/套索/矩形/椭圆）选择要填充的区域');
-        setActiveTool(null);
-        onProcessingChange(false);
-        return;
-      }
-
-      // 使用基于纹理的内容填充算法
-      // 这种方法从选区周围采样像素，确保填充内容与原图风格一致
-      const resultUrl = await textureBasedInpaint(imageUrl, selection);
-      
-      if (resultUrl) {
-        onProcess(resultUrl, '内容填充');
-      } else {
-        setError('内容填充失败：无法处理选区');
-      }
-    } catch (err) {
-      setError('内容填充失败: ' + (err instanceof Error ? err.message : '未知错误'));
-    } finally {
-      setActiveTool(null);
-      onProcessingChange(false);
-    }
-  };
-
-  // 基于纹理合成的内容填充算法
-  // 从选区边界采样像素，逐渐向内填充
-  const textureBasedInpaint = async (
-    imgUrl: string,
-    sel: SelectionData
-  ): Promise<string | null> => {
-    return new Promise((resolve, reject) => {
-      fetchImageProxy(imgUrl).then((proxyUrl) => {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.onload = () => {
-          try {
-            const canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            const ctx = canvas.getContext('2d')!;
-            
-            // 绘制原图
-            ctx.drawImage(img, 0, 0);
-            
-            // 获取图像数据
-            const imageData = ctx.getImageData(0, 0, img.width, img.height);
-            const data = imageData.data;
-            const mask = sel.mask!;
-            const width = img.width;
-            const height = img.height;
-            
-            // 计算选区边界
-            const bounds = sel.bounds;
-            
-            if (!bounds || bounds.width <= 0 || bounds.height <= 0) {
-              resolve(null);
-              return;
-            }
-            
-            // 统计选区像素数量
-            let selectionCount = 0;
-            for (let y = bounds.y; y < Math.min(bounds.y + bounds.height, height); y++) {
-              for (let x = bounds.x; x < Math.min(bounds.x + bounds.width, width); x++) {
-                if (mask[y]?.[x]) selectionCount++;
-              }
-            }
-            
-            if (selectionCount === 0) {
-              resolve(null);
-              return;
-            }
-            
-            // 创建已填充标记
-            const filled: boolean[][] = Array(height).fill(null).map(() => Array(width).fill(false));
-            
-            // 辅助函数：从周围非选区像素采样颜色
-            const sampleFromOutside = (x: number, y: number, radius: number): { r: number; g: number; b: number } | null => {
-              let r = 0, g = 0, b = 0, count = 0;
-              
-              for (let dy = -radius; dy <= radius; dy++) {
-                for (let dx = -radius; dx <= radius; dx++) {
-                  const nx = x + dx;
-                  const ny = y + dy;
-                  if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
-                    // 只从非选区像素采样
-                    if (!mask[ny]?.[nx]) {
-                      const idx = (ny * width + nx) * 4;
-                      r += data[idx];
-                      g += data[idx + 1];
-                      b += data[idx + 2];
-                      count++;
-                    }
-                  }
-                }
-              }
-              
-              if (count > 0) {
-                return { r: Math.round(r / count), g: Math.round(g / count), b: Math.round(b / count) };
-              }
-              return null;
-            };
-            
-            // 辅助函数：从已填充的邻居采样
-            const sampleFromFilled = (x: number, y: number): { r: number; g: number; b: number } | null => {
-              let r = 0, g = 0, b = 0, count = 0;
-              const neighbors = [
-                [x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1],
-                [x - 1, y - 1], [x + 1, y - 1], [x - 1, y + 1], [x + 1, y + 1]
-              ];
-              
-              for (const [nx, ny] of neighbors) {
-                if (nx >= 0 && nx < width && ny >= 0 && ny < height && filled[ny][nx]) {
-                  const idx = (ny * width + nx) * 4;
-                  r += data[idx];
-                  g += data[idx + 1];
-                  b += data[idx + 2];
-                  count++;
-                }
-              }
-              
-              if (count > 0) {
-                return { r: Math.round(r / count), g: Math.round(g / count), b: Math.round(b / count) };
-              }
-              return null;
-            };
-            
-            // 迭代填充
-            let filledCount = 0;
-            let iteration = 0;
-            const maxIterations = Math.max(bounds.width, bounds.height) * 2;
-            
-            const fillIteration = () => {
-              let changed = false;
-              
-              // 遍历所有选区像素
-              for (let y = bounds.y; y < Math.min(bounds.y + bounds.height, height); y++) {
-                for (let x = bounds.x; x < Math.min(bounds.x + bounds.width, width); x++) {
-                  if (!mask[y]?.[x] || filled[y][x]) continue;
-                  
-                  let color: { r: number; g: number; b: number } | null = null;
-                  
-                  // 首先尝试从已填充的邻居采样
-                  color = sampleFromFilled(x, y);
-                  
-                  // 如果没有已填充邻居，尝试从外部采样
-                  if (!color) {
-                    color = sampleFromOutside(x, y, 3);
-                  }
-                  
-                  if (color) {
-                    const idx = (y * width + x) * 4;
-                    data[idx] = color.r;
-                    data[idx + 1] = color.g;
-                    data[idx + 2] = color.b;
-                    
-                    filled[y][x] = true;
-                    filledCount++;
-                    changed = true;
-                  }
-                }
-              }
-              
-              iteration++;
-              
-              if (changed && filledCount < selectionCount && iteration < maxIterations) {
-                requestAnimationFrame(fillIteration);
-              } else {
-                // 填充完成
-                ctx.putImageData(imageData, 0, 0);
-                resolve(canvas.toDataURL('image/png'));
-              }
-            };
-            
-            // 开始填充
-            fillIteration();
-          } catch (err) {
-            console.error('内容填充失败:', err);
-            reject(err);
-          }
-        };
-        img.onerror = () => reject(new Error('加载图像失败'));
-        img.src = proxyUrl;
-      }).catch(reject);
-    });
-  };
-
-  // 通过代理获取图片，避免跨域问题
-  const fetchImageProxy = async (imageUrl: string): Promise<string> => {
-    try {
-      const response = await fetch('/api/fetch-image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageUrl }),
-      });
-      const data = await response.json();
-      if (data.success && data.imageUrl) {
-        return data.imageUrl;
-      }
-      return imageUrl;
-    } catch {
-      return imageUrl;
-    }
-  };
-
-  // 裁剪出包含选区的区域
-  const cropSelectionArea = async (
-    imgUrl: string, 
-    sel: SelectionData
-  ): Promise<{
-    croppedImageUrl: string;
-    cropBounds: { x: number; y: number; width: number; height: number };
-    originalBounds: { x: number; y: number; width: number; height: number };
-  }> => {
-    return new Promise((resolve, reject) => {
-      // 先通过代理获取图片，避免跨域问题
-      fetchImageProxy(imgUrl).then((proxyUrl) => {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.onload = () => {
-          try {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d')!;
-            const mask = sel.mask!;
-            
-            // 计算选区边界
-            const bounds = sel.bounds || { x: 0, y: 0, width: img.width, height: img.height };
-            
-            // 添加一些边距，确保周围上下文被包含
-            const margin = Math.max(bounds.width, bounds.height) * 0.3;
-            const cropX = Math.max(0, Math.floor(bounds.x - margin));
-            const cropY = Math.max(0, Math.floor(bounds.y - margin));
-            const cropWidth = Math.min(img.width - cropX, Math.ceil(bounds.width + margin * 2));
-            const cropHeight = Math.min(img.height - cropY, Math.ceil(bounds.height + margin * 2));
-            
-            canvas.width = cropWidth;
-            canvas.height = cropHeight;
-            
-            // 绘制裁剪区域
-            ctx.drawImage(img, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
-            
-            // 获取图像数据
-            const imageData = ctx.getImageData(0, 0, cropWidth, cropHeight);
-            
-            // 对选区进行均值模糊
-            const radius = 3;
-            for (let y = 0; y < cropHeight; y++) {
-              for (let x = 0; x < cropWidth; x++) {
-                // 检查这个像素是否在原始选区内（相对于完整图像）
-                const imgX = cropX + x;
-                const imgY = cropY + y;
-                
-                if (mask[imgY]?.[imgX]) {
-                  // 计算周围像素的均值
-                  let r = 0, g = 0, b = 0, count = 0;
-                  for (let dy = -radius; dy <= radius; dy++) {
-                    for (let dx = -radius; dx <= radius; dx++) {
-                      const nx = imgX + dx;
-                      const ny = imgY + dy;
-                      if (nx >= 0 && nx < img.width && ny >= 0 && ny < img.height && mask[ny]?.[nx]) {
-                        const idx = (ny * img.width + nx) * 4;
-                        r += imageData.data[(y + dy) * cropWidth * 4 + (x + dx) * 4];
-                        g += imageData.data[(y + dy) * cropWidth * 4 + (x + dx) * 4 + 1];
-                        b += imageData.data[(y + dy) * cropWidth * 4 + (x + dx) * 4 + 2];
-                        count++;
-                      }
-                    }
-                  }
-                  if (count > 0) {
-                    const idx = (y * cropWidth + x) * 4;
-                    imageData.data[idx] = r / count;
-                    imageData.data[idx + 1] = g / count;
-                    imageData.data[idx + 2] = b / count;
-                  }
-                }
-              }
-            }
-            
-            ctx.putImageData(imageData, 0, 0);
-            
-            resolve({
-              croppedImageUrl: canvas.toDataURL('image/png'),
-              cropBounds: { x: cropX, y: cropY, width: cropWidth, height: cropHeight },
-              originalBounds: bounds
-            });
-          } catch (err) {
-            console.error('裁剪失败:', err);
-            reject(err);
-          }
-        };
-        img.onerror = () => reject(new Error('加载图像失败'));
-        img.src = proxyUrl;
-      }).catch(reject);
-    });
-  };
-
-  // 将处理后的结果合成回原图
-  const compositeResult = async (
-    originalUrl: string,
-    processedUrl: string,
-    originalBounds: { x: number; y: number; width: number; height: number }
-  ): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      // 先通过代理获取图片，避免跨域问题
-      Promise.all([
-        fetchImageProxy(originalUrl),
-        fetchImageProxy(processedUrl)
-      ]).then(([proxyOriginalUrl, proxyProcessedUrl]) => {
-        const originalImg = new Image();
-        const processedImg = new Image();
-        
-        let originalLoaded = false;
-        let processedLoaded = false;
-        
-        const checkAndProcess = () => {
-          if (originalLoaded && processedLoaded) {
-            try {
-              const canvas = document.createElement('canvas');
-              canvas.width = originalImg.width;
-              canvas.height = originalImg.height;
-              const ctx = canvas.getContext('2d')!;
-              
-              // 绘制原图
-              ctx.drawImage(originalImg, 0, 0);
-              
-              // 计算处理区域在画布上的位置
-              const destX = originalBounds.x;
-              const destY = originalBounds.y;
-              const destWidth = Math.min(originalBounds.width, processedImg.width);
-              const destHeight = Math.min(originalBounds.height, processedImg.height);
-              
-              // 绘制处理后的图像到对应位置
-              ctx.drawImage(processedImg, 0, 0, destWidth, destHeight, destX, destY, destWidth, destHeight);
-              
-              resolve(canvas.toDataURL('image/png'));
-            } catch (err) {
-              console.error('合成失败:', err);
-              reject(err);
-            }
-          }
-        };
-        
-        originalImg.onload = () => {
-          originalLoaded = true;
-          checkAndProcess();
-        };
-        processedImg.onload = () => {
-          processedLoaded = true;
-          checkAndProcess();
-        };
-        
-        originalImg.onerror = () => reject(new Error('加载原图失败'));
-        processedImg.onerror = () => reject(new Error('加载处理结果失败'));
-        
-        originalImg.crossOrigin = 'anonymous';
-        processedImg.crossOrigin = 'anonymous';
-        originalImg.src = proxyOriginalUrl;
-        processedImg.src = proxyProcessedUrl;
-      }).catch(reject);
-    });
-  };
-
-  // 通用处理函数
+  // 通用 AI 处理
   const handleProcess = async (toolId: string) => {
-    if (!imageUrl) {
-      setError('请先上传图片');
-      return;
-    }
-
-    // 扩图特殊处理
-    if (toolId === 'expand') {
-      handleExpand(expandScale);
-      return;
-    }
-
-    // 内容填充特殊处理
-    if (toolId === 'inpaint') {
-      handleInpaint();
-      return;
-    }
+    if (!imageUrl) return;
 
     setError(null);
     setActiveTool(toolId);
@@ -529,7 +130,6 @@ export function AIProcessingPanel({
       const requestBody: Record<string, unknown> = {
         action: toolId,
         imageUrl,
-        prompt: prompt || undefined,
       };
 
       if (toolId === 'style_transfer' && styleImage) {
@@ -547,7 +147,8 @@ export function AIProcessingPanel({
       const data = await response.json();
 
       if (data.success && data.imageUrl) {
-        onProcess(data.imageUrl, aiTools.find(t => t.id === toolId)?.name || 'AI处理');
+        const toolName = aiTools.find(t => t.id === toolId)?.name || 'AI处理';
+        onProcess(data.imageUrl, toolName);
       } else {
         setError(data.error || data.errors?.[0] || '处理失败');
       }
@@ -560,192 +161,139 @@ export function AIProcessingPanel({
   };
 
   return (
-    <div className="h-full flex flex-col">
-      {/* 标题 - 简洁设计 */}
-      <div className="px-4 py-3 border-b border-white/10">
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-md bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
-            <Sparkles className="h-3.5 w-3.5 text-white" />
+    <TooltipProvider delayDuration={200}>
+      <div className="h-full flex flex-col">
+        {/* 标题 */}
+        <div className="px-4 py-4 border-b border-white/10 flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-amber-400" />
+            <h2 className="text-sm font-semibold text-white/90">AI 智能</h2>
           </div>
-          <h3 className="text-sm font-medium text-white">智能工具</h3>
         </div>
-      </div>
 
-      {/* 功能列表 */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {aiTools.map((tool) => {
-          const Icon = tool.icon;
-          const isActive = activeTool === tool.id;
+        {/* 工具列表 */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {aiTools.map((tool) => {
+            const Icon = tool.icon;
+            const isActive = activeTool === tool.id;
+            const isProcessingThis = isActive;
 
-          return (
-            <div key={tool.id} className="space-y-2">
-              <button
-                onClick={() => handleProcess(tool.id)}
-                disabled={isProcessing || !imageUrl}
-                className={cn(
-                  "w-full p-4 rounded-xl border transition-all text-left",
-                  "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20",
-                  "disabled:opacity-50 disabled:cursor-not-allowed",
-                  isActive && "ring-2 ring-amber-400/50"
-                )}
-              >
-                <div className="flex items-center gap-3">
+            return (
+              <div key={tool.id} className="space-y-3">
+                {/* 工具标签 */}
+                <div className="flex items-center gap-2">
                   <div className={cn(
-                    "w-10 h-10 rounded-xl bg-gradient-to-br flex items-center justify-center",
+                    "w-3.5 h-3.5 rounded-sm bg-gradient-to-br",
                     tool.color
-                  )}>
-                    <Icon className="h-5 w-5 text-white" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-white">{tool.name}</p>
-                    <p className="text-xs text-white/40 mt-0.5">{tool.description}</p>
-                  </div>
-                  {isActive && (
-                    <Loader2 className="h-4 w-4 text-amber-400 animate-spin" />
-                  )}
+                  )} />
+                  <span className="text-xs font-medium text-white/70">{tool.name}</span>
                 </div>
-              </button>
 
-              {/* 扩图 - 扩展倍数滑块 */}
-              {tool.id === 'expand' && (
-                <div className="pl-4 space-y-3">
-                  <div>
-                    <div className="flex items-center justify-between text-xs text-white/50 mb-2">
-                      <span>扩展比例</span>
-                      <span className="text-white font-mono">{expandScale.toFixed(1)}x</span>
-                    </div>
-                    <div className="relative h-2 bg-white/10 rounded-full">
-                      <div 
-                        className="absolute inset-y-0 left-0 bg-gradient-to-r from-blue-500 to-cyan-400 rounded-full"
-                        style={{ width: `${((expandScale - 1.2) / 0.8) * 100}%` }}
-                      />
-                      <input
-                        type="range"
-                        min="1.2"
-                        max="2.0"
-                        step="0.1"
+                {/* 工具按钮 */}
+                <div className="flex items-center gap-2">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className={cn(
+                          "h-9 w-9 rounded-lg border transition-all",
+                          isProcessingThis
+                            ? cn("bg-gradient-to-r text-black shadow-lg", tool.color, tool.colorShadow, "border-current")
+                            : "bg-white/5 border-white/10 text-white/60 hover:text-white hover:bg-white/10 hover:border-white/20"
+                        )}
+                        onClick={() => handleProcess(tool.id)}
+                        disabled={isProcessing || !imageUrl}
+                      >
+                        {isProcessingThis ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Icon className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="bg-black/90 border-white/10 text-xs">
+                      <p>{tool.name}</p>
+                    </TooltipContent>
+                  </Tooltip>
+
+                  {/* 扩图 - 比例滑块 */}
+                  {tool.id === 'expand' && (
+                    <div className="flex-1 flex items-center gap-3">
+                      <Slider
                         value={expandScale}
-                        onChange={(e) => setExpandScale(parseFloat(e.target.value))}
+                        min={1.2}
+                        max={2.0}
+                        step={0.1}
+                        onValueChange={(value) => setExpandScale(value)}
+                        className="flex-1"
                         disabled={isProcessing}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
                       />
-                    </div>
-                    <div className="flex justify-between text-xs text-white/30 mt-1">
-                      <span>1.2x</span>
-                      <span>2.0x</span>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleExpand(expandScale)}
-                    disabled={isProcessing || !imageUrl}
-                    className="w-full py-2.5 px-4 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    开始处理
-                  </button>
-                </div>
-              )}
-
-              {/* 内容填充 - 状态指示 */}
-              {tool.id === 'inpaint' && (
-                <div className="pl-4 space-y-3">
-                  {/* 选区状态指示 */}
-                  <div className={cn(
-                    "p-3 rounded-lg border transition-colors",
-                    selection && selection.mask && selection.mask.length > 0
-                      ? "bg-green-500/10 border-green-500/30"
-                      : "bg-white/5 border-white/10"
-                  )}>
-                    <div className="flex items-center gap-2">
-                      <div className={cn(
-                        "w-2 h-2 rounded-full",
-                        selection && selection.mask && selection.mask.length > 0
-                          ? "bg-green-400"
-                          : "bg-white/30"
-                      )} />
-                      <span className="text-xs text-white/60">
-                        {selection && selection.mask && selection.mask.length > 0
-                          ? `已选择 ${selection.bounds?.width || 0}×${selection.bounds?.height || 0}`
-                          : "使用选区工具选择区域"}
+                      <span className="text-xs text-cyan-400/80 font-mono w-10 text-right">
+                        {expandScale[0].toFixed(1)}x
                       </span>
                     </div>
-                  </div>
-                  
-                  <button
-                    onClick={handleInpaint}
-                    disabled={isProcessing || !imageUrl || !selection?.mask?.length}
-                    className="w-full py-2.5 px-4 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    填充选中区域
-                  </button>
-                </div>
-              )}
+                  )}
 
-              {/* 风格迁移 - 上传风格图 */}
-              {tool.id === 'style_transfer' && (
-                <div className="pl-4">
-                  <input
-                    ref={styleInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleStyleImageUpload}
-                  />
-                  <button
+                  {/* 风格迁移 - 上传按钮 */}
+                  {tool.id === 'style_transfer' && (
+                    <input
+                      ref={styleInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleStyleImageUpload}
+                    />
+                  )}
+                </div>
+
+                {/* 风格迁移 - 预览 */}
+                {tool.id === 'style_transfer' && styleImage && (
+                  <div className="relative">
+                    <img
+                      src={styleImage}
+                      alt="风格图"
+                      className="w-full h-16 object-cover rounded-lg"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute top-1 right-1 h-6 px-2 text-[10px] bg-black/50 hover:bg-black/70 text-white/60"
+                      onClick={() => {
+                        setStyleImage(null);
+                        styleInputRef.current?.click();
+                      }}
+                    >
+                      更换
+                    </Button>
+                  </div>
+                )}
+
+                {/* 风格迁移 - 上传提示 */}
+                {tool.id === 'style_transfer' && !styleImage && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full h-8 text-xs text-white/40 border border-dashed border-white/10 hover:border-white/20 hover:text-white/60"
                     onClick={() => styleInputRef.current?.click()}
                     disabled={isProcessing}
-                    className="w-full p-3 rounded-lg border border-dashed border-white/20 bg-white/5 hover:bg-white/10 transition-colors"
                   >
-                    {styleImage ? (
-                      <div className="flex items-center gap-3">
-                        <img
-                          src={styleImage}
-                          alt="风格图"
-                          className="w-12 h-12 object-cover rounded-lg"
-                        />
-                        <div className="flex-1 text-left">
-                          <p className="text-xs text-white/70">风格参考图已上传</p>
-                          <p className="text-xs text-white/40">点击更换</p>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2 text-white/50">
-                        <Upload className="h-4 w-4" />
-                        <span className="text-xs">上传风格参考图</span>
-                      </div>
-                    )}
-                  </button>
-                </div>
-              )}
+                    <Upload className="h-3 w-3 mr-1.5" />
+                    上传风格参考图
+                  </Button>
+                )}
+              </div>
+            );
+          })}
+
+          {/* 错误提示 */}
+          {error && (
+            <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20">
+              <p className="text-xs text-amber-100">{error}</p>
             </div>
-          );
-        })}
-
-        {/* 自定义提示词 - 可选功能 */}
-        <div className="pt-4 border-t border-white/10">
-          <label className="text-xs text-white/40 mb-2 block">提示词（可选）</label>
-          <textarea
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            placeholder="描述你想要的效果..."
-            className="w-full h-16 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder:text-white/20 resize-none focus:outline-none focus:border-white/20 transition-colors"
-          />
-        </div>
-
-        {/* 错误提示 */}
-        {error && (
-          <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-            <p className="text-xs text-amber-100">{error}</p>
-          </div>
-        )}
-      </div>
-
-      {/* 底部状态 - 简洁设计 */}
-      <div className="px-4 py-2.5 border-t border-white/10 bg-white/5">
-        <div className="flex items-center justify-center gap-2 text-xs text-white/30">
-          <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
-          <span>准备就绪</span>
+          )}
         </div>
       </div>
-    </div>
+    </TooltipProvider>
   );
 }
