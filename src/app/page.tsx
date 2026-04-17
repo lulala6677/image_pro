@@ -767,12 +767,12 @@ export default function ImageProcessorPage() {
             {/* 虹彩发光效果 */}
             <div className="absolute inset-0 bg-gradient-to-r from-orange-500 via-yellow-400 via-cyan-400 to-purple-500 blur-xl opacity-60 animate-pulse" />
             <div className="relative bg-gradient-to-r from-orange-400 via-yellow-300 via-cyan-300 to-purple-400 bg-clip-text text-transparent">
-              <h1 className="text-2xl font-bold tracking-tight">ImagePro</h1>
+              <h1 className="text-2xl font-bold tracking-tight">ImageStu</h1>
             </div>
           </div>
           <div className="flex items-center gap-1.5 text-white/50">
             <Sparkles className="h-3 w-3" />
-            <span className="text-xs font-light tracking-wide">数字图像处理平台</span>
+            <span className="text-xs font-light tracking-wide">数字图像处理实验室</span>
           </div>
         </div>
         
