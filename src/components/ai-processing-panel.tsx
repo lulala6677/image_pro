@@ -205,6 +205,24 @@ export function AIProcessingPanel({
     }
   };
 
+  // 通过代理获取图片，避免跨域问题
+  const fetchImageProxy = async (imageUrl: string): Promise<string> => {
+    try {
+      const response = await fetch('/api/fetch-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageUrl }),
+      });
+      const data = await response.json();
+      if (data.success && data.imageUrl) {
+        return data.imageUrl;
+      }
+      return imageUrl;
+    } catch {
+      return imageUrl;
+    }
+  };
+
   // 裁剪出包含选区的区域
   const cropSelectionArea = async (
     imgUrl: string, 
@@ -215,80 +233,84 @@ export function AIProcessingPanel({
     originalBounds: { x: number; y: number; width: number; height: number };
   }> => {
     return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => {
-        try {
-          const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d')!;
-          const mask = sel.mask!;
-          
-          // 计算选区边界
-          const bounds = sel.bounds || { x: 0, y: 0, width: img.width, height: img.height };
-          
-          // 添加一些边距，确保周围上下文被包含
-          const margin = Math.max(bounds.width, bounds.height) * 0.3;
-          const cropX = Math.max(0, Math.floor(bounds.x - margin));
-          const cropY = Math.max(0, Math.floor(bounds.y - margin));
-          const cropWidth = Math.min(img.width - cropX, Math.ceil(bounds.width + margin * 2));
-          const cropHeight = Math.min(img.height - cropY, Math.ceil(bounds.height + margin * 2));
-          
-          canvas.width = cropWidth;
-          canvas.height = cropHeight;
-          
-          // 绘制裁剪区域
-          ctx.drawImage(img, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
-          
-          // 获取图像数据
-          const imageData = ctx.getImageData(0, 0, cropWidth, cropHeight);
-          
-          // 对选区进行均值模糊
-          const radius = 3;
-          for (let y = 0; y < cropHeight; y++) {
-            for (let x = 0; x < cropWidth; x++) {
-              // 检查这个像素是否在原始选区内（相对于完整图像）
-              const imgX = cropX + x;
-              const imgY = cropY + y;
-              
-              if (mask[imgY]?.[imgX]) {
-                // 计算周围像素的均值
-                let r = 0, g = 0, b = 0, count = 0;
-                for (let dy = -radius; dy <= radius; dy++) {
-                  for (let dx = -radius; dx <= radius; dx++) {
-                    const nx = imgX + dx;
-                    const ny = imgY + dy;
-                    if (nx >= 0 && nx < img.width && ny >= 0 && ny < img.height && mask[ny]?.[nx]) {
-                      const idx = (ny * img.width + nx) * 4;
-                      r += imageData.data[(y + dy) * cropWidth * 4 + (x + dx) * 4];
-                      g += imageData.data[(y + dy) * cropWidth * 4 + (x + dx) * 4 + 1];
-                      b += imageData.data[(y + dy) * cropWidth * 4 + (x + dx) * 4 + 2];
-                      count++;
+      // 先通过代理获取图片，避免跨域问题
+      fetchImageProxy(imgUrl).then((proxyUrl) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d')!;
+            const mask = sel.mask!;
+            
+            // 计算选区边界
+            const bounds = sel.bounds || { x: 0, y: 0, width: img.width, height: img.height };
+            
+            // 添加一些边距，确保周围上下文被包含
+            const margin = Math.max(bounds.width, bounds.height) * 0.3;
+            const cropX = Math.max(0, Math.floor(bounds.x - margin));
+            const cropY = Math.max(0, Math.floor(bounds.y - margin));
+            const cropWidth = Math.min(img.width - cropX, Math.ceil(bounds.width + margin * 2));
+            const cropHeight = Math.min(img.height - cropY, Math.ceil(bounds.height + margin * 2));
+            
+            canvas.width = cropWidth;
+            canvas.height = cropHeight;
+            
+            // 绘制裁剪区域
+            ctx.drawImage(img, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+            
+            // 获取图像数据
+            const imageData = ctx.getImageData(0, 0, cropWidth, cropHeight);
+            
+            // 对选区进行均值模糊
+            const radius = 3;
+            for (let y = 0; y < cropHeight; y++) {
+              for (let x = 0; x < cropWidth; x++) {
+                // 检查这个像素是否在原始选区内（相对于完整图像）
+                const imgX = cropX + x;
+                const imgY = cropY + y;
+                
+                if (mask[imgY]?.[imgX]) {
+                  // 计算周围像素的均值
+                  let r = 0, g = 0, b = 0, count = 0;
+                  for (let dy = -radius; dy <= radius; dy++) {
+                    for (let dx = -radius; dx <= radius; dx++) {
+                      const nx = imgX + dx;
+                      const ny = imgY + dy;
+                      if (nx >= 0 && nx < img.width && ny >= 0 && ny < img.height && mask[ny]?.[nx]) {
+                        const idx = (ny * img.width + nx) * 4;
+                        r += imageData.data[(y + dy) * cropWidth * 4 + (x + dx) * 4];
+                        g += imageData.data[(y + dy) * cropWidth * 4 + (x + dx) * 4 + 1];
+                        b += imageData.data[(y + dy) * cropWidth * 4 + (x + dx) * 4 + 2];
+                        count++;
+                      }
                     }
                   }
-                }
-                if (count > 0) {
-                  const idx = (y * cropWidth + x) * 4;
-                  imageData.data[idx] = r / count;
-                  imageData.data[idx + 1] = g / count;
-                  imageData.data[idx + 2] = b / count;
+                  if (count > 0) {
+                    const idx = (y * cropWidth + x) * 4;
+                    imageData.data[idx] = r / count;
+                    imageData.data[idx + 1] = g / count;
+                    imageData.data[idx + 2] = b / count;
+                  }
                 }
               }
             }
+            
+            ctx.putImageData(imageData, 0, 0);
+            
+            resolve({
+              croppedImageUrl: canvas.toDataURL('image/png'),
+              cropBounds: { x: cropX, y: cropY, width: cropWidth, height: cropHeight },
+              originalBounds: bounds
+            });
+          } catch (err) {
+            console.error('裁剪失败:', err);
+            reject(err);
           }
-          
-          ctx.putImageData(imageData, 0, 0);
-          
-          resolve({
-            croppedImageUrl: canvas.toDataURL('image/png'),
-            cropBounds: { x: cropX, y: cropY, width: cropWidth, height: cropHeight },
-            originalBounds: bounds
-          });
-        } catch (err) {
-          console.error('裁剪失败:', err);
-          reject(err);
-        }
-      };
-      img.onerror = () => reject(new Error('加载图像失败'));
-      img.src = imgUrl;
+        };
+        img.onerror = () => reject(new Error('加载图像失败'));
+        img.src = proxyUrl;
+      }).catch(reject);
     });
   };
 
@@ -299,54 +321,62 @@ export function AIProcessingPanel({
     originalBounds: { x: number; y: number; width: number; height: number }
   ): Promise<string> => {
     return new Promise((resolve, reject) => {
-      const originalImg = new Image();
-      const processedImg = new Image();
-      
-      let originalLoaded = false;
-      let processedLoaded = false;
-      
-      const checkAndProcess = () => {
-        if (originalLoaded && processedLoaded) {
-          try {
-            const canvas = document.createElement('canvas');
-            canvas.width = originalImg.width;
-            canvas.height = originalImg.height;
-            const ctx = canvas.getContext('2d')!;
-            
-            // 绘制原图
-            ctx.drawImage(originalImg, 0, 0);
-            
-            // 计算处理区域在画布上的位置
-            const destX = originalBounds.x;
-            const destY = originalBounds.y;
-            const destWidth = Math.min(originalBounds.width, processedImg.width);
-            const destHeight = Math.min(originalBounds.height, processedImg.height);
-            
-            // 绘制处理后的图像到对应位置
-            ctx.drawImage(processedImg, 0, 0, destWidth, destHeight, destX, destY, destWidth, destHeight);
-            
-            resolve(canvas.toDataURL('image/png'));
-          } catch (err) {
-            console.error('合成失败:', err);
-            reject(err);
+      // 先通过代理获取图片，避免跨域问题
+      Promise.all([
+        fetchImageProxy(originalUrl),
+        fetchImageProxy(processedUrl)
+      ]).then(([proxyOriginalUrl, proxyProcessedUrl]) => {
+        const originalImg = new Image();
+        const processedImg = new Image();
+        
+        let originalLoaded = false;
+        let processedLoaded = false;
+        
+        const checkAndProcess = () => {
+          if (originalLoaded && processedLoaded) {
+            try {
+              const canvas = document.createElement('canvas');
+              canvas.width = originalImg.width;
+              canvas.height = originalImg.height;
+              const ctx = canvas.getContext('2d')!;
+              
+              // 绘制原图
+              ctx.drawImage(originalImg, 0, 0);
+              
+              // 计算处理区域在画布上的位置
+              const destX = originalBounds.x;
+              const destY = originalBounds.y;
+              const destWidth = Math.min(originalBounds.width, processedImg.width);
+              const destHeight = Math.min(originalBounds.height, processedImg.height);
+              
+              // 绘制处理后的图像到对应位置
+              ctx.drawImage(processedImg, 0, 0, destWidth, destHeight, destX, destY, destWidth, destHeight);
+              
+              resolve(canvas.toDataURL('image/png'));
+            } catch (err) {
+              console.error('合成失败:', err);
+              reject(err);
+            }
           }
-        }
-      };
-      
-      originalImg.onload = () => {
-        originalLoaded = true;
-        checkAndProcess();
-      };
-      processedImg.onload = () => {
-        processedLoaded = true;
-        checkAndProcess();
-      };
-      
-      originalImg.onerror = () => reject(new Error('加载原图失败'));
-      processedImg.onerror = () => reject(new Error('加载处理结果失败'));
-      
-      originalImg.src = originalUrl;
-      processedImg.src = processedUrl;
+        };
+        
+        originalImg.onload = () => {
+          originalLoaded = true;
+          checkAndProcess();
+        };
+        processedImg.onload = () => {
+          processedLoaded = true;
+          checkAndProcess();
+        };
+        
+        originalImg.onerror = () => reject(new Error('加载原图失败'));
+        processedImg.onerror = () => reject(new Error('加载处理结果失败'));
+        
+        originalImg.crossOrigin = 'anonymous';
+        processedImg.crossOrigin = 'anonymous';
+        originalImg.src = proxyOriginalUrl;
+        processedImg.src = proxyProcessedUrl;
+      }).catch(reject);
     });
   };
 
