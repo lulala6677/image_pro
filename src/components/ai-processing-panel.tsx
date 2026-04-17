@@ -197,164 +197,129 @@ export function AIProcessingPanel({
             const height = img.height;
             
             // 计算选区边界
-            const bounds = sel.bounds || { x: 0, y: 0, width, height };
+            const bounds = sel.bounds;
             
-            // 1. 首先使用均值填充初始化选区内部
-            // 找到选区边缘像素，用其颜色填充内部
-            const edgePixels: { x: number; y: number; r: number; g: number; b: number }[] = [];
+            if (!bounds || bounds.width <= 0 || bounds.height <= 0) {
+              resolve(null);
+              return;
+            }
             
-            // 收集边缘像素
-            for (let y = bounds.y; y < bounds.y + bounds.height; y++) {
-              for (let x = bounds.x; x < bounds.x + bounds.width; x++) {
-                if (mask[y]?.[x]) {
-                  // 检查是否是边缘像素
-                  const neighbors = [
-                    [x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]
-                  ];
-                  for (const [nx, ny] of neighbors) {
-                    if (nx >= 0 && nx < width && ny >= 0 && ny < height && !mask[ny]?.[nx]) {
-                      // 这是一个边缘像素
-                      const idx = (ny * width + nx) * 4;
-                      edgePixels.push({
-                        x, y,
-                        r: data[idx],
-                        g: data[idx + 1],
-                        b: data[idx + 2]
-                      });
-                      break;
-                    }
-                  }
-                }
+            // 统计选区像素数量
+            let selectionCount = 0;
+            for (let y = bounds.y; y < Math.min(bounds.y + bounds.height, height); y++) {
+              for (let x = bounds.x; x < Math.min(bounds.x + bounds.width, width); x++) {
+                if (mask[y]?.[x]) selectionCount++;
               }
             }
             
-            // 2. 使用优先级队列进行填充（基于距离和纹理相似性）
-            // 创建一个距离图，记录每个选区像素到边缘的距离
-            const distanceMap: number[][] = Array(height).fill(null).map(() => Array(width).fill(Infinity));
+            if (selectionCount === 0) {
+              resolve(null);
+              return;
+            }
+            
+            // 创建已填充标记
             const filled: boolean[][] = Array(height).fill(null).map(() => Array(width).fill(false));
             
-            // 初始化边缘像素的距离为0，加入队列
-            const queue: { x: number; y: number; dist: number }[] = [];
-            for (let y = bounds.y; y < bounds.y + bounds.height; y++) {
-              for (let x = bounds.x; x < bounds.x + bounds.width; x++) {
-                if (mask[y]?.[x]) {
-                  // 检查是否是边缘
-                  let isEdge = false;
-                  const neighbors = [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]];
-                  for (const [nx, ny] of neighbors) {
-                    if (nx >= 0 && nx < width && ny >= 0 && ny < height && !mask[ny]?.[nx]) {
-                      isEdge = true;
-                      break;
+            // 辅助函数：从周围非选区像素采样颜色
+            const sampleFromOutside = (x: number, y: number, radius: number): { r: number; g: number; b: number } | null => {
+              let r = 0, g = 0, b = 0, count = 0;
+              
+              for (let dy = -radius; dy <= radius; dy++) {
+                for (let dx = -radius; dx <= radius; dx++) {
+                  const nx = x + dx;
+                  const ny = y + dy;
+                  if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                    // 只从非选区像素采样
+                    if (!mask[ny]?.[nx]) {
+                      const idx = (ny * width + nx) * 4;
+                      r += data[idx];
+                      g += data[idx + 1];
+                      b += data[idx + 2];
+                      count++;
                     }
-                  }
-                  if (isEdge) {
-                    distanceMap[y][x] = 0;
-                    queue.push({ x, y, dist: 0 });
                   }
                 }
               }
-            }
+              
+              if (count > 0) {
+                return { r: Math.round(r / count), g: Math.round(g / count), b: Math.round(b / count) };
+              }
+              return null;
+            };
             
-            // BFS 填充距离
-            queue.sort((a, b) => a.dist - b.dist);
-            while (queue.length > 0) {
-              const current = queue.shift()!;
-              
-              if (filled[current.y][current.x]) continue;
-              
+            // 辅助函数：从已填充的邻居采样
+            const sampleFromFilled = (x: number, y: number): { r: number; g: number; b: number } | null => {
+              let r = 0, g = 0, b = 0, count = 0;
               const neighbors = [
-                [current.x - 1, current.y],
-                [current.x + 1, current.y],
-                [current.x, current.y - 1],
-                [current.x, current.y + 1]
+                [x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1],
+                [x - 1, y - 1], [x + 1, y - 1], [x - 1, y + 1], [x + 1, y + 1]
               ];
               
               for (const [nx, ny] of neighbors) {
-                if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
-                  if (mask[ny]?.[nx] && !filled[ny][nx]) {
-                    const newDist = current.dist + 1;
-                    if (newDist < distanceMap[ny][nx]) {
-                      distanceMap[ny][nx] = newDist;
-                      queue.push({ x: nx, y: ny, dist: newDist });
-                      queue.sort((a, b) => a.dist - b.dist);
-                    }
-                  }
+                if (nx >= 0 && nx < width && ny >= 0 && ny < height && filled[ny][nx]) {
+                  const idx = (ny * width + nx) * 4;
+                  r += data[idx];
+                  g += data[idx + 1];
+                  b += data[idx + 2];
+                  count++;
                 }
               }
-            }
+              
+              if (count > 0) {
+                return { r: Math.round(r / count), g: Math.round(g / count), b: Math.round(b / count) };
+              }
+              return null;
+            };
             
-            // 3. 从边缘向内填充
-            // 对每个待填充的像素，从其法线方向（指向边缘）的非选区像素采样
-            const filledCount = { value: 0 };
-            let iterations = 0;
-            const maxIterations = bounds.width * bounds.height;
+            // 迭代填充
+            let filledCount = 0;
+            let iteration = 0;
+            const maxIterations = Math.max(bounds.width, bounds.height) * 2;
             
-            const fillPass = () => {
+            const fillIteration = () => {
               let changed = false;
               
-              for (let y = bounds.y; y < bounds.y + bounds.height && iterations < maxIterations; y++) {
-                for (let x = bounds.x; x < bounds.x + bounds.width && iterations < maxIterations; x++) {
-                  iterations++;
-                  
+              // 遍历所有选区像素
+              for (let y = bounds.y; y < Math.min(bounds.y + bounds.height, height); y++) {
+                for (let x = bounds.x; x < Math.min(bounds.x + bounds.width, width); x++) {
                   if (!mask[y]?.[x] || filled[y][x]) continue;
                   
-                  // 找到最近的边缘像素作为采样源
-                  // 使用基于梯度的方法确定搜索方向
-                  let bestSample: { r: number; g: number; b: number } | null = null;
-                  let bestDist = Infinity;
+                  let color: { r: number; g: number; b: number } | null = null;
                   
-                  // 搜索周围区域
-                  const searchRadius = Math.max(bounds.width, bounds.height);
-                  for (let dy = -searchRadius; dy <= searchRadius && !bestSample; dy++) {
-                    for (let dx = -searchRadius; dx <= searchRadius && !bestSample; dx++) {
-                      const sx = x + dx;
-                      const sy = y + dy;
-                      
-                      // 只从非选区像素采样
-                      if (sx >= 0 && sx < width && sy >= 0 && sy < height && !mask[sy]?.[sx]) {
-                        const dist = Math.sqrt(dx * dx + dy * dy);
-                        if (dist < bestDist) {
-                          bestDist = dist;
-                          const idx = (sy * width + sx) * 4;
-                          bestSample = {
-                            r: data[idx],
-                            g: data[idx + 1],
-                            b: data[idx + 2]
-                          };
-                        }
-                      }
-                    }
+                  // 首先尝试从已填充的邻居采样
+                  color = sampleFromFilled(x, y);
+                  
+                  // 如果没有已填充邻居，尝试从外部采样
+                  if (!color) {
+                    color = sampleFromOutside(x, y, 3);
                   }
                   
-                  if (bestSample) {
+                  if (color) {
                     const idx = (y * width + x) * 4;
-                    data[idx] = bestSample.r;
-                    data[idx + 1] = bestSample.g;
-                    data[idx + 2] = bestSample.b;
+                    data[idx] = color.r;
+                    data[idx + 1] = color.g;
+                    data[idx + 2] = color.b;
+                    
                     filled[y][x] = true;
+                    filledCount++;
                     changed = true;
-                    filledCount.value++;
                   }
                 }
               }
               
-              if (changed && filledCount.value < bounds.width * bounds.height) {
-                // 继续填充
-                requestAnimationFrame(fillPass);
+              iteration++;
+              
+              if (changed && filledCount < selectionCount && iteration < maxIterations) {
+                requestAnimationFrame(fillIteration);
               } else {
-                // 填充完成，应用结果
+                // 填充完成
                 ctx.putImageData(imageData, 0, 0);
                 resolve(canvas.toDataURL('image/png'));
               }
             };
             
             // 开始填充
-            if (queue.length === 0) {
-              // 没有边缘（可能是全选或没有有效选区）
-              resolve(null);
-            } else {
-              fillPass();
-            }
+            fillIteration();
           } catch (err) {
             console.error('内容填充失败:', err);
             reject(err);
