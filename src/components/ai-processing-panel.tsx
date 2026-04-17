@@ -51,33 +51,29 @@ export function AIProcessingPanel({
       id: 'denoise',
       name: '智能去噪',
       icon: Wand2,
-      description: 'AI 一键去除图像噪点，增强清晰度',
-      color: 'from-violet-400 to-purple-500',
-      tips: '保持原图内容不变，仅去除噪点'
+      description: '去除噪点，增强清晰度',
+      color: 'from-violet-400 to-purple-500'
     },
     {
       id: 'expand',
       name: '智能扩图',
       icon: Expand,
-      description: '扩展图像边界，自然延展画面',
-      color: 'from-blue-400 to-cyan-500',
-      tips: '保持原图内容不变，只扩展边界'
+      description: '扩展画面边界',
+      color: 'from-blue-400 to-cyan-500'
     },
     {
       id: 'style_transfer',
       name: '风格迁移',
       icon: Palette,
-      description: '上传艺术图，将风格应用到当前图片',
-      color: 'from-pink-400 to-rose-500',
-      tips: '保持原图内容，只改变艺术风格'
+      description: '应用艺术风格',
+      color: 'from-pink-400 to-rose-500'
     },
     {
       id: 'inpaint',
       name: '内容填充',
       icon: Eraser,
-      description: '智能去除不需要的内容并自然填充',
-      color: 'from-amber-400 to-orange-500',
-      tips: '需先使用选区工具选择要填充的区域'
+      description: '去除并自然填充',
+      color: 'from-amber-400 to-orange-500'
     }
   ];
 
@@ -565,28 +561,17 @@ export function AIProcessingPanel({
 
   return (
     <div className="h-full flex flex-col">
-      {/* 标题 */}
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-white/10">
-        <Sparkles className="h-4 w-4 text-amber-400" />
-        <h3 className="text-sm font-medium text-white">AI 智能处理</h3>
-        
-        {/* GPU 状态指示 */}
-        <div className="ml-auto flex items-center gap-1.5">
-          <div className={cn(
-            "w-2 h-2 rounded-full",
-            gpuStatus === 'checking' && "bg-yellow-400 animate-pulse",
-            gpuStatus === 'available' && "bg-green-400",
-            gpuStatus === 'unavailable' && "bg-gray-400"
-          )} />
-          <span className="text-xs text-white/50">
-            {gpuStatus === 'checking' && '检测中...'}
-            {gpuStatus === 'available' && 'WebGPU'}
-            {gpuStatus === 'unavailable' && '标准模式'}
-          </span>
+      {/* 标题 - 简洁设计 */}
+      <div className="px-4 py-3 border-b border-white/10">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-md bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
+            <Sparkles className="h-3.5 w-3.5 text-white" />
+          </div>
+          <h3 className="text-sm font-medium text-white">智能工具</h3>
         </div>
       </div>
 
-      {/* AI 功能列表 */}
+      {/* 功能列表 */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {aiTools.map((tool) => {
           const Icon = tool.icon;
@@ -606,17 +591,14 @@ export function AIProcessingPanel({
               >
                 <div className="flex items-center gap-3">
                   <div className={cn(
-                    "p-2.5 rounded-lg bg-gradient-to-br",
+                    "w-10 h-10 rounded-xl bg-gradient-to-br flex items-center justify-center",
                     tool.color
                   )}>
                     <Icon className="h-5 w-5 text-white" />
                   </div>
                   <div className="flex-1">
                     <p className="text-sm font-medium text-white">{tool.name}</p>
-                    <p className="text-xs text-white/50 mt-0.5">{tool.description}</p>
-                    {tool.tips && (
-                      <p className="text-xs text-white/30 mt-1">{tool.tips}</p>
-                    )}
+                    <p className="text-xs text-white/40 mt-0.5">{tool.description}</p>
                   </div>
                   {isActive && (
                     <Loader2 className="h-4 w-4 text-amber-400 animate-spin" />
@@ -624,24 +606,30 @@ export function AIProcessingPanel({
                 </div>
               </button>
 
-              {/* 扩图 - 选择扩展倍数 */}
+              {/* 扩图 - 扩展倍数滑块 */}
               {tool.id === 'expand' && (
                 <div className="pl-4 space-y-3">
                   <div>
                     <div className="flex items-center justify-between text-xs text-white/50 mb-2">
-                      <span>扩展倍数</span>
-                      <span className="text-white font-medium">{expandScale.toFixed(1)}x</span>
+                      <span>扩展比例</span>
+                      <span className="text-white font-mono">{expandScale.toFixed(1)}x</span>
                     </div>
-                    <input
-                      type="range"
-                      min="1.2"
-                      max="2.0"
-                      step="0.1"
-                      value={expandScale}
-                      onChange={(e) => setExpandScale(parseFloat(e.target.value))}
-                      disabled={isProcessing}
-                      className="w-full h-2 bg-white/20 rounded-lg appearance-none cursor-pointer disabled:opacity-50 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-blue-400 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer"
-                    />
+                    <div className="relative h-2 bg-white/10 rounded-full">
+                      <div 
+                        className="absolute inset-y-0 left-0 bg-gradient-to-r from-blue-500 to-cyan-400 rounded-full"
+                        style={{ width: `${((expandScale - 1.2) / 0.8) * 100}%` }}
+                      />
+                      <input
+                        type="range"
+                        min="1.2"
+                        max="2.0"
+                        step="0.1"
+                        value={expandScale}
+                        onChange={(e) => setExpandScale(parseFloat(e.target.value))}
+                        disabled={isProcessing}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+                      />
+                    </div>
                     <div className="flex justify-between text-xs text-white/30 mt-1">
                       <span>1.2x</span>
                       <span>2.0x</span>
@@ -650,22 +638,44 @@ export function AIProcessingPanel({
                   <button
                     onClick={() => handleExpand(expandScale)}
                     disabled={isProcessing || !imageUrl}
-                    className="w-full py-2 px-4 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full py-2.5 px-4 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    开始扩图
+                    开始处理
                   </button>
                 </div>
               )}
 
-              {/* 内容填充 - 开始填充按钮 */}
+              {/* 内容填充 - 状态指示 */}
               {tool.id === 'inpaint' && (
-                <div className="pl-4">
+                <div className="pl-4 space-y-3">
+                  {/* 选区状态指示 */}
+                  <div className={cn(
+                    "p-3 rounded-lg border transition-colors",
+                    selection && selection.mask && selection.mask.length > 0
+                      ? "bg-green-500/10 border-green-500/30"
+                      : "bg-white/5 border-white/10"
+                  )}>
+                    <div className="flex items-center gap-2">
+                      <div className={cn(
+                        "w-2 h-2 rounded-full",
+                        selection && selection.mask && selection.mask.length > 0
+                          ? "bg-green-400"
+                          : "bg-white/30"
+                      )} />
+                      <span className="text-xs text-white/60">
+                        {selection && selection.mask && selection.mask.length > 0
+                          ? `已选择 ${selection.bounds?.width || 0}×${selection.bounds?.height || 0}`
+                          : "使用选区工具选择区域"}
+                      </span>
+                    </div>
+                  </div>
+                  
                   <button
                     onClick={handleInpaint}
-                    disabled={isProcessing || !imageUrl}
-                    className="w-full py-2 px-4 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={isProcessing || !imageUrl || !selection?.mask?.length}
+                    className="w-full py-2.5 px-4 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {selection && selection.mask && selection.mask.length > 0 ? '开始填充' : '选择区域后点击'}
+                    填充选中区域
                   </button>
                 </div>
               )}
@@ -710,31 +720,30 @@ export function AIProcessingPanel({
           );
         })}
 
-        {/* 自定义提示词 */}
+        {/* 自定义提示词 - 可选功能 */}
         <div className="pt-4 border-t border-white/10">
-          <label className="text-xs text-white/50 mb-2 block">自定义提示词</label>
+          <label className="text-xs text-white/40 mb-2 block">提示词（可选）</label>
           <textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            placeholder="可选：描述你想要的效果..."
-            className="w-full h-20 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder:text-white/30 resize-none focus:outline-none focus:ring-2 focus:ring-amber-400/50"
+            placeholder="描述你想要的效果..."
+            className="w-full h-16 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder:text-white/20 resize-none focus:outline-none focus:border-white/20 transition-colors"
           />
         </div>
 
         {/* 错误提示 */}
         {error && (
-          <div className="p-3 rounded-lg bg-amber-500/20 border border-amber-500/30">
-            <p className="text-xs text-amber-100 whitespace-pre-line">{error}</p>
+          <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+            <p className="text-xs text-amber-100">{error}</p>
           </div>
         )}
       </div>
 
-      {/* 底部信息 */}
-      <div className="px-4 py-3 border-t border-white/10 bg-white/5">
-        <div className="flex items-center gap-2 text-xs text-white/40">
-          <Cpu className="h-3 w-3" />
-          <span>使用云端 AI 加速处理</span>
-          <Zap className="h-3 w-3 text-amber-400 ml-auto" />
+      {/* 底部状态 - 简洁设计 */}
+      <div className="px-4 py-2.5 border-t border-white/10 bg-white/5">
+        <div className="flex items-center justify-center gap-2 text-xs text-white/30">
+          <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
+          <span>准备就绪</span>
         </div>
       </div>
     </div>
