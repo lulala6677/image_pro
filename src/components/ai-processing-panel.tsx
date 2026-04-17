@@ -229,7 +229,7 @@ export function AIProcessingPanel({
                         className="flex-1"
                         disabled={isProcessing}
                       />
-                      <span className="text-xs text-cyan-400/80 font-mono w-10 text-right">
+                      <span className="text-xs text-cyan-300 font-mono w-10 text-right">
                         {expandScale[0].toFixed(1)}x
                       </span>
                     </div>
@@ -258,7 +258,7 @@ export function AIProcessingPanel({
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="absolute top-1 right-1 h-6 px-2 text-[10px] bg-black/50 hover:bg-black/70 text-white/60"
+                      className="absolute top-1 right-1 h-6 px-2 text-[10px] bg-black/50 hover:bg-black/70 text-white/90"
                       onClick={() => {
                         setStyleImage(null);
                         styleInputRef.current?.click();
@@ -274,7 +274,7 @@ export function AIProcessingPanel({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="w-full h-8 text-xs text-white/40 border border-dashed border-white/10 hover:border-white/20 hover:text-white/60"
+                    className="w-full h-8 text-xs text-white/70 border border-dashed border-white/20 hover:border-white/30 hover:text-white"
                     onClick={() => styleInputRef.current?.click()}
                     disabled={isProcessing}
                   >
