@@ -22,6 +22,7 @@ export function AIProcessingPanel({
   const [styleImage, setStyleImage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [gpuStatus, setGpuStatus] = useState<'checking' | 'available' | 'unavailable'>('checking');
+  const [expandScale, setExpandScale] = useState(1.5); // 扩图倍数
   const styleInputRef = useRef<HTMLInputElement>(null);
 
   // 检查 WebGPU 可用性
@@ -83,9 +84,92 @@ export function AIProcessingPanel({
     reader.readAsDataURL(file);
   };
 
+  // 扩图处理 - 使用 Canvas 扩展画布
+  const handleExpand = async (scale: number) => {
+    if (!imageUrl) return;
+
+    setActiveTool('expand');
+    setError(null);
+    onProcessingChange(true);
+
+    try {
+      // 1. 加载原图
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = imageUrl;
+      });
+
+      // 2. 计算扩展后的尺寸
+      const newWidth = Math.round(img.width * scale);
+      const newHeight = Math.round(img.height * scale);
+      const paddingX = (newWidth - img.width) / 2;
+      const paddingY = (newHeight - img.height) / 2;
+
+      // 3. 创建扩展画布
+      const canvas = document.createElement('canvas');
+      canvas.width = newWidth;
+      canvas.height = newHeight;
+      const ctx = canvas.getContext('2d')!;
+
+      // 填充背景色
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, newWidth, newHeight);
+
+      // 4. 绘制原图到中心
+      ctx.drawImage(img, paddingX, paddingY, img.width, img.height);
+
+      // 5. 准备要填充的扩展区域（使用白色/透明背景）
+      const expandedDataUrl = canvas.toDataURL('image/png');
+
+      // 6. 调用 AI 填充扩展区域
+      const expandPrompt = prompt || 
+        `Seamlessly extend this image outward. ` +
+        `IMPORTANT: The original content must remain completely unchanged in the center of the image. ` +
+        `Only generate natural, coherent new content at the edges and corners that extends the scene. ` +
+        `Match the style, lighting, colors, textures, and perspective of the original image. ` +
+        `The new expanded areas should look like natural parts of the original scene.`;
+
+      const response = await fetch('/api/ai/process', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'denoise',
+          imageUrl: expandedDataUrl,
+          prompt: expandPrompt,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success && data.imageUrl) {
+        onProcess(data.imageUrl, '智能扩图');
+      } else {
+        // 如果 AI 处理失败，至少返回扩展后的基础版本
+        onProcess(expandedDataUrl, '智能扩图');
+      }
+    } catch (err) {
+      setError('扩图失败: ' + (err instanceof Error ? err.message : '未知错误'));
+    } finally {
+      setActiveTool(null);
+      onProcessingChange(false);
+    }
+  };
+
+  // 通用处理函数
   const handleProcess = async (toolId: string) => {
     if (!imageUrl) {
       setError('请先上传图片');
+      return;
+    }
+
+    // 扩图特殊处理
+    if (toolId === 'expand') {
+      handleExpand(expandScale);
       return;
     }
 
@@ -197,6 +281,39 @@ export function AIProcessingPanel({
                   )}
                 </div>
               </button>
+
+              {/* 扩图 - 选择扩展倍数 */}
+              {tool.id === 'expand' && (
+                <div className="pl-4 space-y-3">
+                  <div>
+                    <div className="flex items-center justify-between text-xs text-white/50 mb-2">
+                      <span>扩展倍数</span>
+                      <span className="text-white font-medium">{expandScale.toFixed(1)}x</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="1.2"
+                      max="2.0"
+                      step="0.1"
+                      value={expandScale}
+                      onChange={(e) => setExpandScale(parseFloat(e.target.value))}
+                      disabled={isProcessing}
+                      className="w-full h-2 bg-white/20 rounded-lg appearance-none cursor-pointer disabled:opacity-50 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-blue-400 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer"
+                    />
+                    <div className="flex justify-between text-xs text-white/30 mt-1">
+                      <span>1.2x</span>
+                      <span>2.0x</span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleExpand(expandScale)}
+                    disabled={isProcessing || !imageUrl}
+                    className="w-full py-2 px-4 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    开始扩图
+                  </button>
+                </div>
+              )}
 
               {/* 风格迁移 - 上传风格图 */}
               {tool.id === 'style_transfer' && (

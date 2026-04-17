@@ -57,32 +57,19 @@ export async function POST(request: NextRequest) {
 
       case 'expand': {
         // 智能扩图 - 扩展图像边界
-        // 强调要保持原图内容，只在边界处生成新内容
-        const expandPrompt = prompt || 
-          `Seamlessly extend the image boundaries. ` +
-          `IMPORTANT: Keep the entire original image content completely unchanged in the center. ` +
-          `Only generate natural, coherent new content at the edges that matches the scene, ` +
-          `lighting, colors, and style of the original image. ` +
-          `The original part of the image must remain pixel-perfect identical.`;
+        // 扩展倍数，默认为 1.5（扩大 50%）
+        const scale = body.scale !== undefined ? Number(body.scale) : 1.5;
+        const padding = body.padding !== undefined ? Number(body.padding) : 50;
         
-        const response = await client.generate({
-          prompt: expandPrompt,
-          image: imageUrl,
-          size: '2K',
-        });
-
-        const helper = client.getResponseHelper(response);
-        if (helper.success) {
-          return NextResponse.json({ 
-            success: true, 
-            imageUrl: helper.imageUrls[0],
-            message: '智能扩图完成'
-          });
-        }
+        // 返回给前端进行 Canvas 扩展处理
         return NextResponse.json({ 
-          success: false, 
-          errors: helper.errorMessages 
-        }, { status: 500 });
+          success: true, 
+          action: 'expand_canvas',
+          imageUrl: imageUrl,
+          scale: scale,
+          padding: padding,
+          message: '准备扩展画布'
+        });
       }
 
       case 'style_transfer': {
