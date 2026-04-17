@@ -4,25 +4,33 @@ import { useState, useRef, useEffect } from 'react';
 import { Sparkles, Wand2, Expand, Palette, Eraser, Cpu, Zap, Loader2, Upload } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+// 选区数据类型
+interface SelectionData {
+  mask?: boolean[][];
+  bounds?: { x: number; y: number; width: number; height: number };
+}
+
 interface AIProcessingPanelProps {
   imageUrl?: string;
   onProcess: (resultUrl: string, operation: string) => void;
   isProcessing: boolean;
   onProcessingChange: (processing: boolean) => void;
+  selection?: SelectionData | null;
 }
 
 export function AIProcessingPanel({
   imageUrl,
   onProcess,
   isProcessing,
-  onProcessingChange
+  onProcessingChange,
+  selection
 }: AIProcessingPanelProps) {
   const [activeTool, setActiveTool] = useState<string | null>(null);
   const [prompt, setPrompt] = useState('');
   const [styleImage, setStyleImage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [gpuStatus, setGpuStatus] = useState<'checking' | 'available' | 'unavailable'>('checking');
-  const [expandScale, setExpandScale] = useState(1.5); // 扩图倍数
+  const [expandScale, setExpandScale] = useState(1.5);
   const styleInputRef = useRef<HTMLInputElement>(null);
 
   // 检查 WebGPU 可用性
@@ -84,7 +92,7 @@ export function AIProcessingPanel({
     reader.readAsDataURL(file);
   };
 
-  // 扩图处理 - 直接让 AI 扩图
+  // 扩图处理
   const handleExpand = async (scale: number) => {
     if (!imageUrl) return;
 
@@ -93,7 +101,6 @@ export function AIProcessingPanel({
     onProcessingChange(true);
 
     try {
-      // 直接调用 AI 进行扩图
       const expandPrompt = prompt || 
         `Extend this image outward to create a wider, expanded view. ` +
         `The original content in the center must remain unchanged. ` +
@@ -128,6 +135,89 @@ export function AIProcessingPanel({
     }
   };
 
+  // 内容填充处理
+  const handleInpaint = async () => {
+    if (!imageUrl) return;
+
+    setActiveTool('inpaint');
+    setError(null);
+    onProcessingChange(true);
+
+    try {
+      // 检查是否有选区
+      if (!selection || !selection.mask || selection.mask.length === 0) {
+        setError('请先用选区工具（魔棒/套索/矩形/椭圆）选择要填充的区域');
+        setActiveTool(null);
+        onProcessingChange(false);
+        return;
+      }
+
+      // 将选区蒙版转换为图像
+      const maskDataUrl = createMaskImage(selection);
+
+      // 调用 AI 进行内容填充
+      const inpaintPrompt = prompt || 
+        `Remove the selected area and fill it with natural content that matches the surrounding context. ` +
+        `The content should seamlessly blend with the rest of the image in terms of lighting, colors, textures, and perspective. ` +
+        `The unmasked areas must remain completely unchanged.`;
+
+      const response = await fetch('/api/ai/process', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'inpaint',
+          imageUrl: imageUrl,
+          maskImageUrl: maskDataUrl,
+          prompt: inpaintPrompt,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success && data.imageUrl) {
+        onProcess(data.imageUrl, '内容填充');
+      } else {
+        setError(data.error || data.errors?.[0] || '内容填充失败');
+      }
+    } catch (err) {
+      setError('内容填充失败: ' + (err instanceof Error ? err.message : '未知错误'));
+    } finally {
+      setActiveTool(null);
+      onProcessingChange(false);
+    }
+  };
+
+  // 创建蒙版图像
+  const createMaskImage = (sel: SelectionData): string => {
+    const mask = sel.mask!;
+    const height = mask.length;
+    const width = mask[0]?.length || 0;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d')!;
+
+    // 创建黑白蒙版：选中区域为黑色（要被填充），未选中区域为白色（保留原图）
+    const imageData = ctx.createImageData(width, height);
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const index = (y * width + x) * 4;
+        const isSelected = mask[y]?.[x] || false;
+        const value = isSelected ? 0 : 255;
+        imageData.data[index] = value;
+        imageData.data[index + 1] = value;
+        imageData.data[index + 2] = value;
+        imageData.data[index + 3] = 255;
+      }
+    }
+    ctx.putImageData(imageData, 0, 0);
+
+    return canvas.toDataURL('image/png');
+  };
+
   // 通用处理函数
   const handleProcess = async (toolId: string) => {
     if (!imageUrl) {
@@ -138,6 +228,12 @@ export function AIProcessingPanel({
     // 扩图特殊处理
     if (toolId === 'expand') {
       handleExpand(expandScale);
+      return;
+    }
+
+    // 内容填充特殊处理
+    if (toolId === 'inpaint') {
+      handleInpaint();
       return;
     }
 
@@ -154,16 +250,6 @@ export function AIProcessingPanel({
 
       if (toolId === 'style_transfer' && styleImage) {
         requestBody.styleImageUrl = styleImage;
-      }
-
-      // 内容填充需要蒙版
-      if (toolId === 'inpaint') {
-        setError(null);
-        setActiveTool(null);
-        onProcessingChange(false);
-        // 显示需要蒙版的提示
-        setError('内容填充功能：\n1. 先使用左侧选区工具（魔棒/套索）选择要填充的区域\n2. 选择区域后，再点击此按钮进行填充');
-        return;
       }
 
       const response = await fetch('/api/ai/process', {
@@ -279,6 +365,19 @@ export function AIProcessingPanel({
                     className="w-full py-2 px-4 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     开始扩图
+                  </button>
+                </div>
+              )}
+
+              {/* 内容填充 - 开始填充按钮 */}
+              {tool.id === 'inpaint' && (
+                <div className="pl-4">
+                  <button
+                    onClick={handleInpaint}
+                    disabled={isProcessing || !imageUrl}
+                    className="w-full py-2 px-4 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {selection && selection.mask && selection.mask.length > 0 ? '开始填充' : '选择区域后点击'}
                   </button>
                 </div>
               )}

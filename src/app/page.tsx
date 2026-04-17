@@ -873,6 +873,7 @@ export default function ImageProcessorPage() {
                 <TabsContent value="ai" className="flex-1 mt-0">
                   <AIProcessingPanel
                     imageUrl={displayImage?.dataUrl}
+                    selection={selection}
                     onProcess={(resultUrl, operation) => {
                       // 处理 AI 返回的结果
                       const newId = generateId();
