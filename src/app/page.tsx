@@ -836,7 +836,7 @@ export default function ImageProcessorPage() {
                 <TabsList className="w-full grid grid-cols-2 bg-black/40 border-b border-white/10 rounded-none h-auto p-1">
                   <TabsTrigger 
                     value="basic" 
-                    className="flex items-center gap-2 text-xs py-2 data-[state=active]:bg-white/10"
+                    className="flex items-center gap-2 text-xs py-2 text-white/80 data-[state=active]:bg-white/10"
                   >
                     <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <rect x="3" y="3" width="7" height="7" />
@@ -848,7 +848,7 @@ export default function ImageProcessorPage() {
                   </TabsTrigger>
                   <TabsTrigger 
                     value="ai" 
-                    className="flex items-center gap-2 text-xs py-2 data-[state=active]:bg-white/10"
+                    className="flex items-center gap-2 text-xs py-2 text-white/80 data-[state=active]:bg-white/10"
                   >
                     <Sparkles className="h-4 w-4 text-amber-400" />
                     AI 智能
