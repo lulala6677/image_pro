@@ -764,9 +764,9 @@ export default function ImageProcessorPage() {
       <header className="relative z-10 px-6 py-4 flex items-center justify-between flex-shrink-0 border-b border-white/10 bg-black/50 backdrop-blur-xl">
         <div className="flex items-center gap-3">
           <div className="relative">
-            {/* 发光效果 */}
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 blur-xl opacity-50 animate-pulse" />
-            <div className="relative bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+            {/* 虹彩发光效果 */}
+            <div className="absolute inset-0 bg-gradient-to-r from-orange-500 via-yellow-400 via-cyan-400 to-purple-500 blur-xl opacity-60 animate-pulse" />
+            <div className="relative bg-gradient-to-r from-orange-400 via-yellow-300 via-cyan-300 to-purple-400 bg-clip-text text-transparent">
               <h1 className="text-2xl font-bold tracking-tight">ImageStu</h1>
             </div>
           </div>
@@ -836,7 +836,7 @@ export default function ImageProcessorPage() {
                 <TabsList className="w-full grid grid-cols-2 bg-black/40 border-b border-white/10 rounded-none h-auto p-1">
                   <TabsTrigger 
                     value="basic" 
-                    className="flex items-center gap-2 text-xs py-2 text-white/80 data-[state=active]:bg-white/10"
+                    className="flex items-center gap-2 text-xs py-2 data-[state=active]:bg-white/10"
                   >
                     <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <rect x="3" y="3" width="7" height="7" />
@@ -848,7 +848,7 @@ export default function ImageProcessorPage() {
                   </TabsTrigger>
                   <TabsTrigger 
                     value="ai" 
-                    className="flex items-center gap-2 text-xs py-2 text-white/80 data-[state=active]:bg-white/10"
+                    className="flex items-center gap-2 text-xs py-2 data-[state=active]:bg-white/10"
                   >
                     <Sparkles className="h-4 w-4 text-amber-400" />
                     AI 智能
