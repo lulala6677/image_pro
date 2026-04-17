@@ -84,7 +84,7 @@ export function AIProcessingPanel({
     reader.readAsDataURL(file);
   };
 
-  // 扩图处理 - 使用 Canvas 扩展画布
+  // 扩图处理 - 直接让 AI 扩图
   const handleExpand = async (scale: number) => {
     if (!imageUrl) return;
 
@@ -93,44 +93,13 @@ export function AIProcessingPanel({
     onProcessingChange(true);
 
     try {
-      // 1. 加载原图
-      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.onload = () => resolve(img);
-        img.onerror = reject;
-        img.src = imageUrl;
-      });
-
-      // 2. 计算扩展后的尺寸
-      const newWidth = Math.round(img.width * scale);
-      const newHeight = Math.round(img.height * scale);
-      const paddingX = (newWidth - img.width) / 2;
-      const paddingY = (newHeight - img.height) / 2;
-
-      // 3. 创建扩展画布
-      const canvas = document.createElement('canvas');
-      canvas.width = newWidth;
-      canvas.height = newHeight;
-      const ctx = canvas.getContext('2d')!;
-
-      // 填充背景色
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, newWidth, newHeight);
-
-      // 4. 绘制原图到中心
-      ctx.drawImage(img, paddingX, paddingY, img.width, img.height);
-
-      // 5. 准备要填充的扩展区域（使用白色/透明背景）
-      const expandedDataUrl = canvas.toDataURL('image/png');
-
-      // 6. 调用 AI 填充扩展区域
+      // 直接调用 AI 进行扩图
       const expandPrompt = prompt || 
-        `Seamlessly extend this image outward. ` +
-        `IMPORTANT: The original content must remain completely unchanged in the center of the image. ` +
-        `Only generate natural, coherent new content at the edges and corners that extends the scene. ` +
-        `Match the style, lighting, colors, textures, and perspective of the original image. ` +
-        `The new expanded areas should look like natural parts of the original scene.`;
+        `Extend this image outward to create a wider, expanded view. ` +
+        `The original content in the center must remain unchanged. ` +
+        `Generate new natural content at the edges that seamlessly continues the scene. ` +
+        `Match the lighting, colors, textures, and atmosphere of the original image. ` +
+        `The result should look like the original scene captured with a wider angle lens.`;
 
       const response = await fetch('/api/ai/process', {
         method: 'POST',
@@ -138,8 +107,8 @@ export function AIProcessingPanel({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          action: 'denoise',
-          imageUrl: expandedDataUrl,
+          action: 'expand',
+          imageUrl: imageUrl,
           prompt: expandPrompt,
         }),
       });
@@ -149,8 +118,7 @@ export function AIProcessingPanel({
       if (data.success && data.imageUrl) {
         onProcess(data.imageUrl, '智能扩图');
       } else {
-        // 如果 AI 处理失败，至少返回扩展后的基础版本
-        onProcess(expandedDataUrl, '智能扩图');
+        setError(data.error || data.errors?.[0] || '扩图失败');
       }
     } catch (err) {
       setError('扩图失败: ' + (err instanceof Error ? err.message : '未知错误'));
