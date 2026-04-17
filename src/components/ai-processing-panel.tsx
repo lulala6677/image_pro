@@ -152,24 +152,38 @@ export function AIProcessingPanel({
         return;
       }
 
-      // 将选区蒙版转换为图像
-      const maskDataUrl = createMaskImage(selection);
+      // 使用裁剪-处理-合成方案
+      // 1. 裁剪出包含选区的区域
+      // 2. 让 AI 处理这个区域
+      // 3. 将结果合成回原图
 
-      // 调用 AI 进行内容填充
+      const { croppedImageUrl, cropBounds, originalBounds } = await cropSelectionArea(imageUrl, selection);
+
+      // 获取选区边界信息
+      const bounds = selection.bounds;
+      const boundsInfo = bounds ? 
+        `The rectangular area from (${bounds.x}, ${bounds.y}) to (${bounds.x + bounds.width}, ${bounds.y + bounds.height}) ` :
+        'The marked area ';
+
+      // 构建 inpaint prompt，强调只处理选区
       const inpaintPrompt = prompt || 
-        `Remove the selected area and fill it with natural content that matches the surrounding context. ` +
-        `The content should seamlessly blend with the rest of the image in terms of lighting, colors, textures, and perspective. ` +
-        `The unmasked areas must remain completely unchanged.`;
+        `This image contains a marked area that needs to be regenerated. ` +
+        `Please generate new content only for the marked (blurred/smoothed) area. ` +
+        `The new content should seamlessly blend with the surrounding pixels in terms of lighting, colors, textures, patterns, and perspective. ` +
+        `IMPORTANT: Everything outside the marked area must remain EXACTLY the same - do not modify any pixels outside this area. ` +
+        `Create a natural, seamless fill that looks like the original unedited image.`;
 
+      // 调用 AI 处理裁剪后的图像
       const response = await fetch('/api/ai/process', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          action: 'inpaint',
-          imageUrl: imageUrl,
-          maskImageUrl: maskDataUrl,
+          action: 'inpaint_crop',
+          imageUrl: croppedImageUrl,
+          originalBounds: originalBounds,
+          cropBounds: cropBounds,
           prompt: inpaintPrompt,
         }),
       });
@@ -177,7 +191,9 @@ export function AIProcessingPanel({
       const data = await response.json();
 
       if (data.success && data.imageUrl) {
-        onProcess(data.imageUrl, '内容填充');
+        // 将处理后的裁剪图像合成回原图
+        const finalImageUrl = await compositeResult(imageUrl, data.imageUrl, originalBounds);
+        onProcess(finalImageUrl, '内容填充');
       } else {
         setError(data.error || data.errors?.[0] || '内容填充失败');
       }
@@ -189,33 +205,149 @@ export function AIProcessingPanel({
     }
   };
 
-  // 创建蒙版图像
-  const createMaskImage = (sel: SelectionData): string => {
-    const mask = sel.mask!;
-    const height = mask.length;
-    const width = mask[0]?.length || 0;
+  // 裁剪出包含选区的区域
+  const cropSelectionArea = async (
+    imgUrl: string, 
+    sel: SelectionData
+  ): Promise<{
+    croppedImageUrl: string;
+    cropBounds: { x: number; y: number; width: number; height: number };
+    originalBounds: { x: number; y: number; width: number; height: number };
+  }> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d')!;
+          const mask = sel.mask!;
+          
+          // 计算选区边界
+          const bounds = sel.bounds || { x: 0, y: 0, width: img.width, height: img.height };
+          
+          // 添加一些边距，确保周围上下文被包含
+          const margin = Math.max(bounds.width, bounds.height) * 0.3;
+          const cropX = Math.max(0, Math.floor(bounds.x - margin));
+          const cropY = Math.max(0, Math.floor(bounds.y - margin));
+          const cropWidth = Math.min(img.width - cropX, Math.ceil(bounds.width + margin * 2));
+          const cropHeight = Math.min(img.height - cropY, Math.ceil(bounds.height + margin * 2));
+          
+          canvas.width = cropWidth;
+          canvas.height = cropHeight;
+          
+          // 绘制裁剪区域
+          ctx.drawImage(img, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+          
+          // 获取图像数据
+          const imageData = ctx.getImageData(0, 0, cropWidth, cropHeight);
+          
+          // 对选区进行均值模糊
+          const radius = 3;
+          for (let y = 0; y < cropHeight; y++) {
+            for (let x = 0; x < cropWidth; x++) {
+              // 检查这个像素是否在原始选区内（相对于完整图像）
+              const imgX = cropX + x;
+              const imgY = cropY + y;
+              
+              if (mask[imgY]?.[imgX]) {
+                // 计算周围像素的均值
+                let r = 0, g = 0, b = 0, count = 0;
+                for (let dy = -radius; dy <= radius; dy++) {
+                  for (let dx = -radius; dx <= radius; dx++) {
+                    const nx = imgX + dx;
+                    const ny = imgY + dy;
+                    if (nx >= 0 && nx < img.width && ny >= 0 && ny < img.height && mask[ny]?.[nx]) {
+                      const idx = (ny * img.width + nx) * 4;
+                      r += imageData.data[(y + dy) * cropWidth * 4 + (x + dx) * 4];
+                      g += imageData.data[(y + dy) * cropWidth * 4 + (x + dx) * 4 + 1];
+                      b += imageData.data[(y + dy) * cropWidth * 4 + (x + dx) * 4 + 2];
+                      count++;
+                    }
+                  }
+                }
+                if (count > 0) {
+                  const idx = (y * cropWidth + x) * 4;
+                  imageData.data[idx] = r / count;
+                  imageData.data[idx + 1] = g / count;
+                  imageData.data[idx + 2] = b / count;
+                }
+              }
+            }
+          }
+          
+          ctx.putImageData(imageData, 0, 0);
+          
+          resolve({
+            croppedImageUrl: canvas.toDataURL('image/png'),
+            cropBounds: { x: cropX, y: cropY, width: cropWidth, height: cropHeight },
+            originalBounds: bounds
+          });
+        } catch (err) {
+          console.error('裁剪失败:', err);
+          reject(err);
+        }
+      };
+      img.onerror = () => reject(new Error('加载图像失败'));
+      img.src = imgUrl;
+    });
+  };
 
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext('2d')!;
-
-    // 创建黑白蒙版：选中区域为黑色（要被填充），未选中区域为白色（保留原图）
-    const imageData = ctx.createImageData(width, height);
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        const index = (y * width + x) * 4;
-        const isSelected = mask[y]?.[x] || false;
-        const value = isSelected ? 0 : 255;
-        imageData.data[index] = value;
-        imageData.data[index + 1] = value;
-        imageData.data[index + 2] = value;
-        imageData.data[index + 3] = 255;
-      }
-    }
-    ctx.putImageData(imageData, 0, 0);
-
-    return canvas.toDataURL('image/png');
+  // 将处理后的结果合成回原图
+  const compositeResult = async (
+    originalUrl: string,
+    processedUrl: string,
+    originalBounds: { x: number; y: number; width: number; height: number }
+  ): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const originalImg = new Image();
+      const processedImg = new Image();
+      
+      let originalLoaded = false;
+      let processedLoaded = false;
+      
+      const checkAndProcess = () => {
+        if (originalLoaded && processedLoaded) {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = originalImg.width;
+            canvas.height = originalImg.height;
+            const ctx = canvas.getContext('2d')!;
+            
+            // 绘制原图
+            ctx.drawImage(originalImg, 0, 0);
+            
+            // 计算处理区域在画布上的位置
+            const destX = originalBounds.x;
+            const destY = originalBounds.y;
+            const destWidth = Math.min(originalBounds.width, processedImg.width);
+            const destHeight = Math.min(originalBounds.height, processedImg.height);
+            
+            // 绘制处理后的图像到对应位置
+            ctx.drawImage(processedImg, 0, 0, destWidth, destHeight, destX, destY, destWidth, destHeight);
+            
+            resolve(canvas.toDataURL('image/png'));
+          } catch (err) {
+            console.error('合成失败:', err);
+            reject(err);
+          }
+        }
+      };
+      
+      originalImg.onload = () => {
+        originalLoaded = true;
+        checkAndProcess();
+      };
+      processedImg.onload = () => {
+        processedLoaded = true;
+        checkAndProcess();
+      };
+      
+      originalImg.onerror = () => reject(new Error('加载原图失败'));
+      processedImg.onerror = () => reject(new Error('加载处理结果失败'));
+      
+      originalImg.src = originalUrl;
+      processedImg.src = processedUrl;
+    });
   };
 
   // 通用处理函数

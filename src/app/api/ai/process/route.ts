@@ -127,22 +127,53 @@ export async function POST(request: NextRequest) {
 
       case 'inpaint': {
         // 内容感知填充 (Inpainting)
-        // 如果有蒙版图，使用蒙版；否则尝试根据提示词去除内容
-        if (!maskImageUrl) {
-          // 如果没有蒙版，提供一个友好的提示
-          return NextResponse.json({ 
-            success: false, 
-            error: '内容填充需要先使用选区工具（如魔棒、套索）选择要填充的区域'
-          }, { status: 400 });
-        }
-
+        // 预处理后的图像中选区已被均值填充
+        // 使用边界信息辅助 prompt
+        const { originalImageUrl, bounds } = body;
+        
         // Inpainting prompt - 明确说明要填充的区域应该被自然替代
         const inpaintPrompt = prompt || 
-          `Intelligent content-aware inpainting. ` +
-          `The masked areas should be seamlessly filled with natural content ` +
-          `that matches the surrounding context in style, lighting, colors, and texture. ` +
-          `The unmasked original content must remain completely unchanged. ` +
-          `Create smooth, realistic fills that are indistinguishable from the original image.`;
+          `This image has been pre-processed with the target area already smoothed. ` +
+          `Please regenerate only the smoothed area with new natural content that seamlessly continues from the surrounding context. ` +
+          `IMPORTANT: Everything outside the smoothed area must remain EXACTLY the same - do not modify any pixels outside this area. ` +
+          `The new content should match the lighting, colors, textures, patterns, and perspective of the surrounding area. ` +
+          `Create smooth, realistic fills that are perfectly blended with the original image. ` +
+          `The result should look like the original unedited image.`;
+        
+        const response = await client.generate({
+          prompt: inpaintPrompt,
+          image: imageUrl,
+          size: '2K',
+        });
+
+        const helper = client.getResponseHelper(response);
+        if (helper.success) {
+          return NextResponse.json({ 
+            success: true, 
+            imageUrl: helper.imageUrls[0],
+            message: '内容填充完成'
+          });
+        }
+        return NextResponse.json({ 
+          success: false, 
+          errors: helper.errorMessages 
+        }, { status: 500 });
+      }
+
+      case 'inpaint_crop': {
+        // 裁剪区域的内容填充
+        // 图像已经预处理过，选区已被模糊处理
+        const { originalBounds, cropBounds } = body;
+        
+        // 裁剪区域 Inpainting prompt
+        const inpaintPrompt = prompt || 
+          `This image contains a target area that needs regeneration. ` +
+          `The area has been pre-processed with smoothing. ` +
+          `Please generate new content only for this smoothed area. ` +
+          `The new content should seamlessly blend with the surrounding pixels in terms of lighting, colors, textures, patterns, and perspective. ` +
+          `IMPORTANT: Preserve everything outside the smoothed area exactly as is. ` +
+          `Create a natural, seamless fill that looks like the original unedited image. ` +
+          `The overall composition should be coherent and realistic.`;
         
         const response = await client.generate({
           prompt: inpaintPrompt,
