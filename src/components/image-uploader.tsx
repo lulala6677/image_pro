@@ -93,7 +93,7 @@ export function ImageUploader({ onImageLoad, currentImage, onClear }: ImageUploa
 
   if (currentImage) {
     return (
-      <div className="relative overflow-hidden rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10">
+      <div className="relative overflow-hidden rounded-2xl bg-slate-700/30 backdrop-blur-xl border border-white/10">
         <div className="aspect-video relative flex items-center justify-center p-4">
           {currentImage?.dataUrl && (
             <img

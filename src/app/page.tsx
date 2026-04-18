@@ -715,7 +715,7 @@ export default function ImageProcessorPage() {
       <BubblesBackground />
       
       {/* 背景层 - 纯黑 */}
-      <div className="absolute inset-0 bg-black -z-10" />
+      <div className="absolute inset-0 bg-slate-950 -z-10" />
       
       {/* 像素颜色信息显示 - 放在顶层确保 fixed 定位正确 */}
       {pixelColorInfo && activeTool === 'wand' && (
@@ -761,7 +761,7 @@ export default function ImageProcessorPage() {
       )}
       
       {/* 顶部工具栏 */}
-      <header className="relative z-10 px-6 py-4 flex items-center justify-between flex-shrink-0 border-b border-white/10 bg-black/50 backdrop-blur-xl">
+      <header className="relative z-10 px-6 py-4 flex items-center justify-between flex-shrink-0 border-b border-white/10 bg-slate-900/70 backdrop-blur-xl">
         <div className="flex items-center gap-3">
           <div className="relative">
             {/* 虹彩发光效果 */}
@@ -831,9 +831,9 @@ export default function ImageProcessorPage() {
           minRightWidth={200}
           maxRightWidth={400}
           leftPanel={
-            <div className="h-full w-full overflow-y-auto bg-black/40 backdrop-blur-xl border-r border-white/10">
+            <div className="h-full w-full overflow-y-auto bg-slate-800/60 backdrop-blur-xl border-r border-white/10">
               <Tabs defaultValue="basic" className="h-full flex flex-col">
-                <TabsList className="w-full grid grid-cols-2 bg-black/40 border-b border-white/10 rounded-none h-auto p-1">
+                <TabsList className="w-full grid grid-cols-2 bg-slate-800/60 border-b border-white/10 rounded-none h-auto p-1">
                   <TabsTrigger 
                     value="basic" 
                     className="flex items-center gap-2 text-xs py-2 text-white/80 data-[state=active]:bg-white/10"
@@ -912,9 +912,9 @@ export default function ImageProcessorPage() {
             </div>
           }
           centerPanel={
-            <div className="h-full w-full flex flex-col overflow-hidden bg-black/20">
+            <div className="h-full w-full flex flex-col overflow-hidden bg-slate-900/40">
               {/* 缩放控制 */}
-              <div className="flex items-center justify-center gap-3 py-3 border-b border-white/10 bg-black/40 backdrop-blur-xl flex-shrink-0">
+              <div className="flex items-center justify-center gap-3 py-3 border-b border-white/10 bg-slate-800/60 backdrop-blur-xl flex-shrink-0">
                 <Button
                   variant="ghost"
                   size="icon"
@@ -1143,9 +1143,9 @@ export default function ImageProcessorPage() {
             </div>
           }
           rightPanel={
-            <div className="h-full w-full overflow-hidden bg-black/40 backdrop-blur-xl border-l border-white/10">
+            <div className="h-full w-full overflow-hidden bg-slate-800/60 backdrop-blur-xl border-l border-white/10">
               <Tabs defaultValue="histogram" className="h-full w-full flex flex-col">
-                <TabsList className="mx-4 mt-4 mb-2 flex-shrink-0 bg-white/5 border border-white/10 p-1">
+                <TabsList className="mx-4 mt-4 mb-2 flex-shrink-0 bg-slate-800/60 border border-white/10 p-1">
                   <TabsTrigger 
                     value="histogram" 
                     className="text-xs data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500/30 data-[state=active]:to-cyan-500/30 data-[state=active]:text-white text-white/50"
