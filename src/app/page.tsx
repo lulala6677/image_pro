@@ -880,6 +880,11 @@ export default function ImageProcessorPage() {
                     imageUrl={displayImage?.dataUrl}
                     selection={selection}
                     onProcess={(resultUrl, operation) => {
+                      // 保存处理前的图像，用于对比功能
+                      const sourceImage = processedImage || currentImage;
+                      if (sourceImage) {
+                        setBeforeProcessImage(sourceImage);
+                      }
                       // 处理 AI 返回的结果
                       const newId = generateId();
                       const img = new Image();
