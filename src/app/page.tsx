@@ -704,14 +704,31 @@ export default function ImageProcessorPage() {
   }, []);
 
   // 下载图像
-  const handleDownload = useCallback(() => {
+  const handleDownload = useCallback(async () => {
     const image = processedImage || currentImage;
     if (!image) return;
 
-    const link = document.createElement('a');
-    link.href = image.dataUrl;
-    link.download = `processed_${Date.now()}.png`;
-    link.click();
+    try {
+      // 将 dataUrl 转换为 blob 然后下载
+      const response = await fetch(image.dataUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `processed_${Date.now()}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Download failed:', error);
+      // 降级方案：直接使用 dataUrl 下载
+      const link = document.createElement('a');
+      link.href = image.dataUrl;
+      link.download = `processed_${Date.now()}.png`;
+      link.click();
+    }
   }, [processedImage, currentImage]);
 
   return (
