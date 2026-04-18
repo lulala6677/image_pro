@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { Download, Undo2, GitCompareArrows, ZoomIn, ZoomOut, Maximize, Sparkles, RotateCcw, RefreshCw } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ImageUploader, ImageFile } from '@/components/image-uploader';
@@ -48,6 +49,7 @@ export default function ImageProcessorPage() {
   const [zoom, setZoom] = useState(100);
   const [showReveal, setShowReveal] = useState(false); // 揭示动画状态
   const [showReplaceDialog, setShowReplaceDialog] = useState(false); // 更换图片弹窗
+  const [isComparing, setIsComparing] = useState(false); // 按住对比状态
   
   // 选区工具状态
   const [activeTool, setActiveTool] = useState<SelectionToolType>('none');
@@ -79,8 +81,8 @@ export default function ImageProcessorPage() {
     screenY: number;
   } | null>(null);
   
-  // 显示的图像
-  const displayImage = processedImage || currentImage;
+  // 显示的图像 - 按住对比时显示原图
+  const displayImage = isComparing && processedImage ? currentImage : (processedImage || currentImage);
   
   // 图像显示尺寸（用于坐标转换）
   const imageDisplayRef = useRef<HTMLDivElement>(null);
@@ -941,6 +943,28 @@ export default function ImageProcessorPage() {
                   onClick={() => setZoom(100)}
                 >
                   <Maximize className="h-4 w-4" />
+                </Button>
+                {/* 分隔线 */}
+                <div className="w-px h-6 bg-white/10 mx-1" />
+                {/* 按住对比按键 */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={cn(
+                    "h-8 w-8 transition-all",
+                    isComparing 
+                      ? "text-orange-400 bg-orange-400/20" 
+                      : "text-white/50 hover:text-white hover:bg-white/10"
+                  )}
+                  onMouseDown={() => processedImage && setIsComparing(true)}
+                  onMouseUp={() => setIsComparing(false)}
+                  onMouseLeave={() => setIsComparing(false)}
+                  onTouchStart={() => processedImage && setIsComparing(true)}
+                  onTouchEnd={() => setIsComparing(false)}
+                  disabled={!processedImage}
+                  title="按住查看原图"
+                >
+                  <GitCompareArrows className="h-4 w-4" />
                 </Button>
               </div>
 
