@@ -50,6 +50,7 @@ export default function ImageProcessorPage() {
   const [showReveal, setShowReveal] = useState(false); // 揭示动画状态
   const [showReplaceDialog, setShowReplaceDialog] = useState(false); // 更换图片弹窗
   const [isComparing, setIsComparing] = useState(false); // 按住对比状态
+  const [beforeProcessImage, setBeforeProcessImage] = useState<ProcessedImage | null>(null); // 保存处理前的图像
   
   // 选区工具状态
   const [activeTool, setActiveTool] = useState<SelectionToolType>('none');
@@ -81,8 +82,8 @@ export default function ImageProcessorPage() {
     screenY: number;
   } | null>(null);
   
-  // 显示的图像 - 按住对比时显示原图
-  const displayImage = isComparing && processedImage ? currentImage : (processedImage || currentImage);
+  // 显示的图像 - 按住对比时显示处理前的图像
+  const displayImage = isComparing && beforeProcessImage ? beforeProcessImage : (processedImage || currentImage);
   
   // 图像显示尺寸（用于坐标转换）
   const imageDisplayRef = useRef<HTMLDivElement>(null);
@@ -297,6 +298,8 @@ export default function ImageProcessorPage() {
     const sourceImage = processedImage || currentImage;
     if (!sourceImage) return;
 
+    // 保存处理前的图像，用于对比功能
+    setBeforeProcessImage(sourceImage);
     setIsProcessing(true);
     
     try {
@@ -956,13 +959,13 @@ export default function ImageProcessorPage() {
                       ? "text-orange-400 bg-orange-400/20" 
                       : "text-white/50 hover:text-white hover:bg-white/10"
                   )}
-                  onMouseDown={() => processedImage && setIsComparing(true)}
+                  onMouseDown={() => beforeProcessImage && setIsComparing(true)}
                   onMouseUp={() => setIsComparing(false)}
                   onMouseLeave={() => setIsComparing(false)}
-                  onTouchStart={() => processedImage && setIsComparing(true)}
+                  onTouchStart={() => beforeProcessImage && setIsComparing(true)}
                   onTouchEnd={() => setIsComparing(false)}
-                  disabled={!processedImage}
-                  title="按住查看原图"
+                  disabled={!beforeProcessImage}
+                  title="按住查看处理前"
                 >
                   <GitCompareArrows className="h-4 w-4" />
                 </Button>
