@@ -613,7 +613,7 @@ export function OperationPanel({
           <div 
             ref={panelRef}
             style={{ height: paramPanelHeight }}
-            className="border-t border-white/10 flex-shrink-0 bg-slate-700/30 -mx-4 backdrop-blur-sm animate-in slide-in-from-bottom-4 duration-500 flex flex-col transition-all duration-300 ease-out"
+            className="border-t border-white/10 flex-shrink-0 bg-white/5 -mx-4 backdrop-blur-sm animate-in slide-in-from-bottom-4 duration-500 flex flex-col transition-all duration-300 ease-out"
           >
             {/* 拖拽手柄 */}
             <div
