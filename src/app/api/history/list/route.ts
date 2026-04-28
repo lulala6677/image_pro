@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { getImageUrl } from '@/lib/storage-helper';
 
 // 获取实验历史记录列表
 export async function GET(request: NextRequest) {
@@ -21,9 +22,28 @@ export async function GET(request: NextRequest) {
       throw new Error(`查询失败: ${error.message}`);
     }
 
+    // 处理每条记录，将 key 转换为签名 URL
+    const processedData = await Promise.all(
+      (data || []).map(async (record) => {
+        // 如果 processed_image_url 是 key 格式（以 history/ 开头），生成签名 URL
+        if (record.processed_image_url && record.processed_image_url.startsWith('history/')) {
+          try {
+            const signedUrl = await getImageUrl(record.processed_image_url);
+            return {
+              ...record,
+              processed_image_url: signedUrl,
+            };
+          } catch {
+            return record;
+          }
+        }
+        return record;
+      })
+    );
+
     return NextResponse.json({
       success: true,
-      data: data || [],
+      data: processedData,
       total: count || 0,
       limit,
       offset

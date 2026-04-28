@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { experimentHistory } from '@/storage/database/shared/schema';
+import { uploadImageToStorage } from '@/lib/storage-helper';
 
 // 保存实验历史记录
 export async function POST(request: NextRequest) {
@@ -27,6 +27,18 @@ export async function POST(request: NextRequest) {
 
     const client = getSupabaseClient();
 
+    // 如果提供了图片数据，先上传到对象存储
+    let imageKey = null;
+    if (processed_image_url && processed_image_url.startsWith('data:')) {
+      imageKey = await uploadImageToStorage(processed_image_url);
+      if (!imageKey) {
+        return NextResponse.json(
+          { success: false, error: '图片上传失败' },
+          { status: 500 }
+        );
+      }
+    }
+
     // 插入记录
     const { data, error } = await client
       .from('experiment_history')
@@ -34,7 +46,7 @@ export async function POST(request: NextRequest) {
         original_name: original_name || '未命名图片',
         operation_name,
         parameters: parameters || {},
-        processed_image_url,
+        processed_image_url: imageKey || processed_image_url, // 存储 key 或原始 URL
         image_width,
         image_height,
         has_selection: has_selection || false,
