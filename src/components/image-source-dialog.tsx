@@ -285,10 +285,20 @@ export function ImageSourceDialog({ open, onClose, onImageCapture }: ImageSource
     onClose();
   }, [onImageCapture, onClose]);
 
+  // 摄像头启动状态
+  const cameraStartedRef = useRef(false);
+  
   // 监听 mode 变化启动摄像头
   useEffect(() => {
-    if (mode === 'camera' && selectedCamera) {
-      startCamera(selectedCamera);
+    if (mode === 'camera' && selectedCamera && !cameraStartedRef.current) {
+      cameraStartedRef.current = true;
+      // 使用 requestAnimationFrame 延迟调用，避免在 effect 中直接调用 setState
+      const timer = requestAnimationFrame(() => {
+        startCamera(selectedCamera);
+      });
+      return () => cancelAnimationFrame(timer);
+    } else if (mode !== 'camera') {
+      cameraStartedRef.current = false;
     }
   }, [mode, selectedCamera, startCamera]);
 
@@ -312,10 +322,14 @@ export function ImageSourceDialog({ open, onClose, onImageCapture }: ImageSource
   // 对话框关闭时清理
   useEffect(() => {
     if (!open) {
-      stopCamera();
-      setMode('select');
-      setCameras([]);
-      setSelectedCamera(null);
+      // 使用 requestAnimationFrame 延迟调用
+      const timer = requestAnimationFrame(() => {
+        stopCamera();
+        setMode('select');
+        setCameras([]);
+        setSelectedCamera(null);
+      });
+      return () => cancelAnimationFrame(timer);
     }
   }, [open, stopCamera]);
 

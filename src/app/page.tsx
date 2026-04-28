@@ -13,6 +13,7 @@ import { Histogram } from '@/components/histogram';
 import { HistoryPanel, HistoryEntry, CompareView } from '@/components/history-panel';
 import { BubblesBackground } from '@/components/ui/bubbles-background';
 import { PanelLayout } from '@/components/ui/panel-layout';
+import { fetchHistoryList, saveHistoryRecord, clearHistory as clearHistoryApi } from '@/lib/api/history-service';
 import { 
   resize, rotate, flip, translate,
   toGrayscale, binary, logarithmicTransform, inverseTransform, gammaTransform,
@@ -119,6 +120,28 @@ export default function ImageProcessorPage() {
       setPixelColorInfo(null);
     }
   }, [activeTool]);
+  
+  // 加载历史记录（从后端）
+  useEffect(() => {
+    const loadHistory = async () => {
+      const result = await fetchHistoryList(100, 0);
+      if (result.success && result.data) {
+        // 将后端数据转换为前端 HistoryEntry 格式
+        const entries: HistoryEntry[] = result.data.map(record => ({
+          id: record.id,
+          operation: record.operation_name,
+          params: record.parameters,
+          dataUrl: record.processed_image_url || '',
+          width: record.image_width || 0,
+          height: record.image_height || 0,
+          timestamp: new Date(record.created_at).getTime(),
+        }));
+        setHistory(entries);
+        setHistoryIndex(entries.length > 0 ? entries.length - 1 : -1);
+      }
+    };
+    loadHistory();
+  }, []);
   
   // 坐标转换：屏幕坐标 -> 图像坐标
   const screenToImageCoords = useCallback((screenX: number, screenY: number): { x: number; y: number } | null => {
@@ -590,6 +613,18 @@ export default function ImageProcessorPage() {
 
       setHistory(prev => [...prev.slice(0, historyIndex + 1), historyEntry]);
       setHistoryIndex(prev => prev + 1);
+      
+      // 同步保存到后端
+      saveHistoryRecord({
+        original_name: currentImage?.name || '未命名图片',
+        operation_name: operation,
+        parameters: params,
+        processed_image_url: finalDataUrl,
+        image_width: result.width,
+        image_height: result.height,
+        has_selection: !!selection,
+        selection_bounds: selection?.bounds || null,
+      });
 
     } catch (error) {
       console.error('Processing error:', error);
@@ -617,9 +652,11 @@ export default function ImageProcessorPage() {
   }, [history]);
 
   // 清除历史
-  const handleClearHistory = useCallback(() => {
+  const handleClearHistory = useCallback(async () => {
     setHistory([]);
     setHistoryIndex(-1);
+    // 同步清空后端
+    await clearHistoryApi();
   }, []);
 
   // 撤销上一步操作
@@ -691,7 +728,7 @@ export default function ImageProcessorPage() {
       name: `photo-${Date.now()}.jpg`,
     };
     setCurrentImage(imageData);
-    setHistory([{
+    const uploadEntry: HistoryEntry = {
       id: imageData.id,
       operation: '上传图片',
       params: {},
@@ -699,8 +736,21 @@ export default function ImageProcessorPage() {
       dataUrl: imageData.dataUrl,
       width: imageData.width,
       height: imageData.height,
-    }]);
+    };
+    setHistory([uploadEntry]);
     setHistoryIndex(0);
+    
+    // 同步保存到后端
+    saveHistoryRecord({
+      original_name: imageData.name,
+      operation_name: '上传图片',
+      parameters: {},
+      processed_image_url: imageData.dataUrl,
+      image_width: imageData.width,
+      image_height: imageData.height,
+      has_selection: false,
+      selection_bounds: null,
+    });
   }, []);
 
   // 下载图像
@@ -928,6 +978,18 @@ export default function ImageProcessorPage() {
                         };
                         setHistory(prev => [...prev.slice(0, historyIndex + 1), historyEntry]);
                         setHistoryIndex(prev => prev + 1);
+                        
+                        // 同步保存到后端
+                        saveHistoryRecord({
+                          original_name: currentImage?.name || '未命名图片',
+                          operation_name: operation,
+                          parameters: {},
+                          processed_image_url: resultUrl,
+                          image_width: img.width,
+                          image_height: img.height,
+                          has_selection: !!selection,
+                          selection_bounds: selection?.bounds || null,
+                        });
                       };
                       img.src = resultUrl;
                     }}

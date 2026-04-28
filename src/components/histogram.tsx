@@ -112,14 +112,38 @@ function HistogramDisplay({ dataUrl }: { dataUrl: string }) {
   useEffect(() => {
     if (!dataUrl) return;
     
-    setData(null);
-    setError(null);
-    setLoading(true);
+    let cancelled = false;
+    let mounted = true;
     
-    getHistogramFromImage(dataUrl)
-      .then(setData)
-      .catch(err => setError(err.message))
-      .finally(() => setLoading(false));
+    // 使用 async 函数并在内部处理状态
+    const fetchData = async () => {
+      // 初始状态设置
+      if (mounted) {
+        setLoading(true);
+        setError(null);
+        setData(null);
+      }
+      
+      try {
+        const result = await getHistogramFromImage(dataUrl);
+        if (mounted && !cancelled) {
+          setData(result);
+          setLoading(false);
+        }
+      } catch (err) {
+        if (mounted && !cancelled) {
+          setError(err instanceof Error ? err.message : 'Unknown error');
+          setLoading(false);
+        }
+      }
+    };
+    
+    fetchData();
+      
+    return () => {
+      cancelled = true;
+      mounted = false;
+    };
   }, [dataUrl]);
   
   if (loading) {
