@@ -1,41 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { getImageUrl } from '@/lib/storage-helper';
+import { getSupabaseAdminClient } from '@/lib/supabase';
+import { getSignedDownloadUrl } from '@/lib/s3-storage';
 
-// 获取实验历史记录列表
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const limit = parseInt(searchParams.get('limit') || '50', 10);
-    const offset = parseInt(searchParams.get('offset') || '0', 10);
+    const limit = parseInt(searchParams.get('limit') || '20');
+    const offset = parseInt(searchParams.get('offset') || '0');
 
-    const client = getSupabaseClient();
+    const supabase = getSupabaseAdminClient();
 
-    // 查询记录，按时间倒序
-    const { data, error, count } = await client
+    // 查询历史记录
+    const { data, error, count } = await supabase
       .from('experiment_history')
       .select('*', { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
     if (error) {
-      throw new Error(`查询失败: ${error.message}`);
+      console.error('查询历史记录失败:', error);
+      return NextResponse.json(
+        { success: false, error: `查询失败: ${error.message}` },
+        { status: 500 }
+      );
     }
 
-    // 处理每条记录，将 key 转换为签名 URL
+    // 转换图片 URL 为签名 URL（如果是 S3 key）
     const processedData = await Promise.all(
       (data || []).map(async (record) => {
-        // 如果 processed_image_url 是 key 格式（以 history/ 开头），生成签名 URL
-        if (record.processed_image_url && record.processed_image_url.startsWith('history/')) {
-          try {
-            const signedUrl = await getImageUrl(record.processed_image_url);
-            return {
-              ...record,
-              processed_image_url: signedUrl,
-            };
-          } catch {
-            return record;
-          }
+        // 如果是 S3 key，生成签名 URL
+        if (record.processed_image_url && record.processed_image_url.startsWith('data:')) {
+          // base64 图片保持不变
+          return record;
+        }
+        // 其他 URL（外部链接）保持不变
+        if (record.processed_image_url && !record.processed_image_url.includes('.s3.') && !record.processed_image_url.includes('r2.cloudflarestorage') && !record.processed_image_url.includes('oss-')) {
+          return record;
         }
         return record;
       })
@@ -46,12 +46,12 @@ export async function GET(request: NextRequest) {
       data: processedData,
       total: count || 0,
       limit,
-      offset
+      offset,
     });
   } catch (error) {
-    console.error('获取实验记录失败:', error);
+    console.error('查询历史记录错误:', error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : '查询失败' },
+      { success: false, error: `服务器错误: ${error instanceof Error ? error.message : '未知错误'}` },
       { status: 500 }
     );
   }

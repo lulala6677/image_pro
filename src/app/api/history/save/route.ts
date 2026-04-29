@@ -1,23 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { uploadImageToStorage } from '@/lib/storage-helper';
+import { getSupabaseAdminClient } from '@/lib/supabase';
+import { uploadToS3, generateFileKey } from '@/lib/s3-storage';
 
-// 保存实验历史记录
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const {
       original_name,
       operation_name,
-      parameters,
       processed_image_url,
       image_width,
       image_height,
-      has_selection,
-      selection_bounds
+      has_selection = false,
+      selection_bounds = null,
+      parameters = null,
     } = body;
 
-    // 参数验证
+    // 验证必填字段
     if (!operation_name) {
       return NextResponse.json(
         { success: false, error: '操作名称不能为空' },
@@ -25,13 +24,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const client = getSupabaseClient();
+    const supabase = getSupabaseAdminClient();
+    let finalImageUrl = processed_image_url;
+    let imageKey: string | null = null;
 
-    // 如果提供了图片数据，先上传到对象存储
-    let imageKey = null;
+    // 如果是 base64 图片数据，上传到 S3
     if (processed_image_url && processed_image_url.startsWith('data:')) {
-      imageKey = await uploadImageToStorage(processed_image_url);
-      if (!imageKey) {
+      try {
+        // 提取 base64 数据
+        const match = processed_image_url.match(/^data:([^;]+);base64,(.+)$/);
+        if (match) {
+          const contentType = match[1];
+          const base64Data = match[2];
+          const buffer = Buffer.from(base64Data, 'base64');
+
+          // 生成唯一文件 key
+          imageKey = generateFileKey('history', 'png');
+
+          // 上传到 S3
+          finalImageUrl = await uploadToS3(imageKey, buffer, contentType);
+          console.log(`图片已上传到 S3: ${imageKey}`);
+        }
+      } catch (uploadError) {
+        console.error('图片上传失败:', uploadError);
         return NextResponse.json(
           { success: false, error: '图片上传失败' },
           { status: 500 }
@@ -39,35 +54,39 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 插入记录
-    const { data, error } = await client
-      .from('experiment_history')
-      .insert({
-        original_name: original_name || '未命名图片',
-        operation_name,
-        parameters: parameters || {},
-        processed_image_url: imageKey || processed_image_url, // 存储 key 或原始 URL
-        image_width,
-        image_height,
-        has_selection: has_selection || false,
-        selection_bounds
-      })
-      .select()
-      .single();
+    // 生成记录 ID
+    const id = crypto.randomUUID();
+
+    // 保存到数据库
+    const { data, error } = await supabase.from('experiment_history').insert({
+      id,
+      original_name: original_name || null,
+      operation_name,
+      parameters: parameters || null,
+      processed_image_url: finalImageUrl || null,
+      image_width: image_width || null,
+      image_height: image_height || null,
+      has_selection,
+      selection_bounds: selection_bounds || null,
+    }).select().single();
 
     if (error) {
-      throw new Error(`保存失败: ${error.message}`);
+      console.error('保存历史记录失败:', error);
+      return NextResponse.json(
+        { success: false, error: `保存失败: ${error.message}` },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({
       success: true,
       data,
-      message: '记录保存成功'
+      message: '记录保存成功',
     });
   } catch (error) {
-    console.error('保存实验记录失败:', error);
+    console.error('保存历史记录错误:', error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : '保存失败' },
+      { success: false, error: `服务器错误: ${error instanceof Error ? error.message : '未知错误'}` },
       { status: 500 }
     );
   }

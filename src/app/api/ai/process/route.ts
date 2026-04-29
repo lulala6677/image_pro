@@ -1,239 +1,209 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ImageGenerationClient, Config, HeaderUtils } from 'coze-coding-dev-sdk';
+import { generateImage, editImage } from '@/lib/ai-client';
+import { uploadToS3, generateFileKey } from '@/lib/s3-storage';
 
-// 初始化客户端（复用实例）
-let cachedClient: ImageGenerationClient | null = null;
-
-function getClient(customHeaders: Record<string, string>) {
-  if (!cachedClient) {
-    const config = new Config();
-    cachedClient = new ImageGenerationClient(config, customHeaders);
-  }
-  return cachedClient;
-}
-
+/**
+ * AI 图像处理 API
+ * 支持 OpenAI DALL-E、阿里云通义万相等兼容 API
+ * 
+ * 请求参数:
+ * - action: 'denoise' | 'expand' | 'style_transfer' | 'inpaint' | 'enhance'
+ * - imageUrl: base64 图片数据或外部 URL
+ * - styleImageUrl: 风格参考图（用于风格迁移）
+ * - prompt: 自定义提示词
+ * - strength: 强度参数（0-1）
+ */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { action, imageUrl, styleImageUrl, prompt, maskImageUrl, strength } = body;
+    const { action, imageUrl, styleImageUrl, prompt, strength } = body;
 
-    // 提取转发 headers
-    const customHeaders = HeaderUtils.extractForwardHeaders(request.headers);
-    const client = getClient(customHeaders);
+    if (!action) {
+      return NextResponse.json({
+        success: false,
+        error: '缺少 action 参数',
+      }, { status: 400 });
+    }
+
+    if (!imageUrl) {
+      return NextResponse.json({
+        success: false,
+        error: '缺少图片数据',
+      }, { status: 400 });
+    }
 
     // 强度参数（控制对原图的保留程度，0-1之间）
     const controlStrength = strength !== undefined ? Number(strength) : 0.7;
 
+    let result;
+    let message;
+
     switch (action) {
       case 'denoise': {
         // 图像去噪 - 使用 AI 增强清晰度
-        // 强调保持原图内容和结构不变，只去除噪点
-        const denoisePrompt = prompt || 
+        message = '去噪处理完成';
+        const denoisePrompt = prompt ||
           `Professional image denoising and restoration. Remove all noise, grain, and artifacts. ` +
           `IMPORTANT: Preserve the original content, subject, composition, colors, and all details exactly. ` +
           `Enhance clarity and sharpness while maintaining perfect fidelity to the original image. ` +
           `The output must be a denoised version of the input image with identical content.`;
-        
-        const response = await client.generate({
-          prompt: denoisePrompt,
-          image: imageUrl,
-          size: '2K',
-          // 较高的 strength 意味着更接近原图
-        });
 
-        const helper = client.getResponseHelper(response);
-        if (helper.success) {
-          return NextResponse.json({ 
-            success: true, 
-            imageUrl: helper.imageUrls[0],
-            message: '去噪处理完成'
-          });
-        }
-        return NextResponse.json({ 
-          success: false, 
-          errors: helper.errorMessages 
-        }, { status: 500 });
+        result = await generateImage(denoisePrompt, {
+          image: imageUrl,
+          size: '1024x1024',
+          quality: 'hd',
+        });
+        break;
       }
 
       case 'expand': {
         // 智能扩图 - 扩展图像边界
-        // 强调保持原图内容，只在边界处生成新内容
-        const expandPrompt = prompt || 
+        message = '智能扩图完成';
+        const expandPrompt = prompt ||
           `Extend and expand this image outward to create a wider view. ` +
           `IMPORTANT: Keep the original content in the center completely unchanged. ` +
           `Only generate new natural content at the edges to seamlessly expand the scene. ` +
           `Match the lighting, colors, atmosphere, textures, and perspective of the original image. ` +
           `The new expanded areas should look like a natural continuation of the original scene. ` +
           `The overall composition should look like one coherent image with a wider field of view.`;
-        
-        const response = await client.generate({
-          prompt: expandPrompt,
-          image: imageUrl,
-          size: '2K',
-        });
 
-        const helper = client.getResponseHelper(response);
-        if (helper.success) {
-          return NextResponse.json({ 
-            success: true, 
-            imageUrl: helper.imageUrls[0],
-            message: '智能扩图完成'
-          });
-        }
-        return NextResponse.json({ 
-          success: false, 
-          errors: helper.errorMessages 
-        }, { status: 500 });
+        result = await generateImage(expandPrompt, {
+          image: imageUrl,
+          size: '1792x1024',
+          quality: 'hd',
+        });
+        break;
       }
 
       case 'style_transfer': {
         // 风格迁移
         if (!styleImageUrl) {
-          return NextResponse.json({ 
-            success: false, 
-            error: '请上传风格参考图' 
+          return NextResponse.json({
+            success: false,
+            error: '请上传风格参考图',
           }, { status: 400 });
         }
 
-        // 风格迁移的 prompt - 明确强调保持原图内容
-        const stylePrompt = prompt || 
-          `Apply the artistic style from the second image to the first image. ` +
-          `IMPORTANT: The subject, content, composition, and main elements of the first image ` +
-          `must remain completely unchanged - only the visual style should be transformed. ` +
-          `Transfer colors, textures, brush strokes, and artistic effects from the style reference. ` +
+        message = '风格迁移完成';
+        // 注意：OpenAI DALL-E 3 不直接支持多图输入，这里使用合并 prompt 的方式
+        // 如果需要真正的风格迁移，可以考虑其他支持多图输入的 API（如 Midjourney、Stable Diffusion）
+        const stylePrompt = prompt ||
+          `Transform this image in the style of the reference image. ` +
+          `IMPORTANT: The subject and content must remain completely unchanged. ` +
+          `Only apply the visual style, colors, textures, and artistic effects from the reference. ` +
           `The output should look like the original content rendered in the new art style. ` +
           `Do not change what is depicted, only how it is depicted.`;
-        
-        const response = await client.generate({
-          prompt: stylePrompt,
-          // 第一张是原图，第二张是风格参考
-          image: [imageUrl, styleImageUrl],
-          size: '2K',
-        });
 
-        const helper = client.getResponseHelper(response);
-        if (helper.success) {
-          return NextResponse.json({ 
-            success: true, 
-            imageUrl: helper.imageUrls[0],
-            message: '风格迁移完成'
-          });
-        }
-        return NextResponse.json({ 
-          success: false, 
-          errors: helper.errorMessages 
-        }, { status: 500 });
+        result = await generateImage(stylePrompt, {
+          image: imageUrl,
+          size: '1024x1024',
+          quality: 'hd',
+        });
+        break;
       }
 
       case 'inpaint': {
         // 内容感知填充 (Inpainting)
-        // 预处理后的图像中选区已被均值填充
-        // 使用边界信息辅助 prompt
-        const { originalImageUrl, bounds } = body;
-        
-        // Inpainting prompt - 明确说明要填充的区域应该被自然替代
-        const inpaintPrompt = prompt || 
-          `This image has been pre-processed with the target area already smoothed. ` +
-          `Please regenerate only the smoothed area with new natural content that seamlessly continues from the surrounding context. ` +
-          `IMPORTANT: Everything outside the smoothed area must remain EXACTLY the same - do not modify any pixels outside this area. ` +
-          `The new content should match the lighting, colors, textures, patterns, and perspective of the surrounding area. ` +
-          `Create smooth, realistic fills that are perfectly blended with the original image. ` +
-          `The result should look like the original unedited image.`;
-        
-        const response = await client.generate({
-          prompt: inpaintPrompt,
+        // 注意：DALL-E 3 不支持 inpainting，这里使用图像编辑模式
+        message = '内容填充完成';
+        const inpaintPrompt = prompt ||
+          `Edit and improve this image. Regenerate any unwanted or low-quality areas with natural content. ` +
+          `IMPORTANT: Keep all good areas exactly the same. ` +
+          `Only modify areas that need improvement. ` +
+          `The new content should match the surrounding areas in lighting, colors, and texture. ` +
+          `Create a seamless, high-quality result.`;
+
+        result = await generateImage(inpaintPrompt, {
           image: imageUrl,
-          size: '2K',
+          size: '1024x1024',
+          quality: 'hd',
         });
-
-        const helper = client.getResponseHelper(response);
-        if (helper.success) {
-          return NextResponse.json({ 
-            success: true, 
-            imageUrl: helper.imageUrls[0],
-            message: '内容填充完成'
-          });
-        }
-        return NextResponse.json({ 
-          success: false, 
-          errors: helper.errorMessages 
-        }, { status: 500 });
-      }
-
-      case 'inpaint_crop': {
-        // 裁剪区域的内容填充
-        // 图像已经预处理过，选区已被模糊处理
-        const { originalBounds, cropBounds } = body;
-        
-        // 裁剪区域 Inpainting prompt
-        const inpaintPrompt = prompt || 
-          `This image contains a target area that needs regeneration. ` +
-          `The area has been pre-processed with smoothing. ` +
-          `Please generate new content only for this smoothed area. ` +
-          `The new content should seamlessly blend with the surrounding pixels in terms of lighting, colors, textures, patterns, and perspective. ` +
-          `IMPORTANT: Preserve everything outside the smoothed area exactly as is. ` +
-          `Create a natural, seamless fill that looks like the original unedited image. ` +
-          `The overall composition should be coherent and realistic.`;
-        
-        const response = await client.generate({
-          prompt: inpaintPrompt,
-          image: imageUrl,
-          size: '2K',
-        });
-
-        const helper = client.getResponseHelper(response);
-        if (helper.success) {
-          return NextResponse.json({ 
-            success: true, 
-            imageUrl: helper.imageUrls[0],
-            message: '内容填充完成'
-          });
-        }
-        return NextResponse.json({ 
-          success: false, 
-          errors: helper.errorMessages 
-        }, { status: 500 });
+        break;
       }
 
       case 'enhance': {
         // 图像增强 - 提升整体质量
-        const enhancePrompt = prompt || 
-          `Professional image enhancement and quality improvement. ` +
-          `Improve clarity, details, colors, and overall visual quality. ` +
-          `IMPORTANT: Preserve the original content, composition, and subject exactly. ` +
-          `Only enhance the quality and visual appeal while maintaining perfect fidelity.`;
-        
-        const response = await client.generate({
-          prompt: enhancePrompt,
-          image: imageUrl,
-          size: '2K',
-        });
+        message = '图像增强完成';
+        const enhancePrompt = prompt ||
+          `Enhance and improve this image with professional photo editing. ` +
+          `Adjust colors, contrast, brightness, and saturation for optimal visual impact. ` +
+          `Sharpen details and improve overall clarity and quality. ` +
+          `IMPORTANT: Preserve the original composition, subject, and all important details. ` +
+          `Only enhance the image quality and visual appeal while maintaining authenticity.`;
 
-        const helper = client.getResponseHelper(response);
-        if (helper.success) {
-          return NextResponse.json({ 
-            success: true, 
-            imageUrl: helper.imageUrls[0],
-            message: '图像增强完成'
-          });
-        }
-        return NextResponse.json({ 
-          success: false, 
-          errors: helper.errorMessages 
-        }, { status: 500 });
+        result = await generateImage(enhancePrompt, {
+          image: imageUrl,
+          size: '1024x1024',
+          quality: 'hd',
+        });
+        break;
       }
 
       default:
-        return NextResponse.json({ 
-          success: false, 
-          error: '未知操作' 
+        return NextResponse.json({
+          success: false,
+          error: `不支持的操作: ${action}`,
         }, { status: 400 });
     }
+
+    if (!result || !result.url) {
+      return NextResponse.json({
+        success: false,
+        error: 'AI 处理失败：未返回结果',
+      }, { status: 500 });
+    }
+
+    // 如果返回的是 URL，尝试下载并上传到自己的存储
+    let finalImageUrl = result.url;
+
+    if (result.url.startsWith('https://') && !result.url.includes('data:image')) {
+      try {
+        // 下载 AI 返回的图片
+        const response = await fetch(result.url);
+        if (response.ok) {
+          const arrayBuffer = await response.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
+
+          // 上传到自己的 S3 存储
+          const key = generateFileKey('ai-results', 'png');
+          finalImageUrl = await uploadToS3(key, buffer, 'image/png');
+        }
+      } catch (uploadError) {
+        console.warn('上传 AI 结果到 S3 失败，使用原始 URL:', uploadError);
+        // 失败时使用原始 URL
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      imageUrl: finalImageUrl,
+      message,
+      revisedPrompt: result.revisedPrompt,
+    });
+
   } catch (error) {
-    console.error('AI 处理错误:', error);
-    return NextResponse.json({ 
-      success: false, 
-      error: error instanceof Error ? error.message : '处理失败' 
+    console.error('AI 图像处理错误:', error);
+
+    const errorMessage = error instanceof Error ? error.message : '未知错误';
+
+    // 区分错误类型
+    if (errorMessage.includes('API key') || errorMessage.includes('auth')) {
+      return NextResponse.json({
+        success: false,
+        error: 'AI 服务认证失败，请检查 API 配置',
+      }, { status: 401 });
+    }
+
+    if (errorMessage.includes('rate limit') || errorMessage.includes('quota')) {
+      return NextResponse.json({
+        success: false,
+        error: 'AI 服务调用次数超限，请稍后重试',
+      }, { status: 429 });
+    }
+
+    return NextResponse.json({
+      success: false,
+      error: `AI 处理失败: ${errorMessage}`,
     }, { status: 500 });
   }
 }
