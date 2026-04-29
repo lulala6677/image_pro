@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateImage, editImage } from '@/lib/ai-client';
-import { uploadToS3, generateFileKey } from '@/lib/s3-storage';
+import { uploadImageToOSS } from '@/lib/oss-storage';
 
 /**
  * AI 图像处理 API
@@ -164,12 +164,11 @@ export async function POST(request: NextRequest) {
           const arrayBuffer = await response.arrayBuffer();
           const buffer = Buffer.from(arrayBuffer);
 
-          // 上传到自己的 S3 存储
-          const key = generateFileKey('ai-results', 'png');
-          finalImageUrl = await uploadToS3(key, buffer, 'image/png');
+          // 上传到自己的 OSS 存储
+          finalImageUrl = await uploadImageToOSS(buffer, 'ai-result.png');
         }
       } catch (uploadError) {
-        console.warn('上传 AI 结果到 S3 失败，使用原始 URL:', uploadError);
+        console.warn('上传 AI 结果到 OSS 失败，使用原始 URL:', uploadError);
         // 失败时使用原始 URL
       }
     }

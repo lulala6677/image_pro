@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdminClient } from '@/lib/supabase';
-import { getSignedDownloadUrl } from '@/lib/s3-storage';
 
 export async function GET(request: NextRequest) {
   try {
@@ -25,21 +24,16 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 转换图片 URL 为签名 URL（如果是 S3 key）
-    const processedData = await Promise.all(
-      (data || []).map(async (record) => {
-        // 如果是 S3 key，生成签名 URL
-        if (record.processed_image_url && record.processed_image_url.startsWith('data:')) {
-          // base64 图片保持不变
-          return record;
-        }
-        // 其他 URL（外部链接）保持不变
-        if (record.processed_image_url && !record.processed_image_url.includes('.s3.') && !record.processed_image_url.includes('r2.cloudflarestorage') && !record.processed_image_url.includes('oss-')) {
-          return record;
-        }
+    // 处理图片 URL（OSS 默认公开访问，无需签名）
+    const processedData = (data || []).map((record) => {
+      // base64 图片保持不变
+      if (record.processed_image_url?.startsWith('data:')) {
         return record;
-      })
-    );
+      }
+      // 其他 URL（OSS URL 或外部链接）保持不变
+      // 阿里云 OSS 的 URL 通常包含 .aliyuncs.com 或自定义域名
+      return record;
+    });
 
     return NextResponse.json({
       success: true,
