@@ -50,6 +50,7 @@ export async function uploadImageToOSS(
 ): Promise<string> {
   const ossClient = getOSSClient();
   const bucket = process.env.OSS_BUCKET!;
+  const region = process.env.OSS_REGION || 'oss-cn-hangzhou';
 
   // 生成唯一的文件名
   const key = `history/${Date.now()}-${filename}`;
@@ -63,8 +64,8 @@ export async function uploadImageToOSS(
       return `${process.env.OSS_CDN_URL.replace(/\/$/, '')}/${key}`;
     }
 
-    // 如果没有配置 CDN，OSS 的公开访问 URL
-    return result.url;
+    // 如果没有配置 CDN，使用标准 OSS URL
+    return `https://${bucket}.${region}.aliyuncs.com/${key}`;
   } catch (error) {
     console.error('OSS 上传失败:', error);
     throw new Error(`图片上传失败: ${error instanceof Error ? error.message : '未知错误'}`);
