@@ -30,9 +30,8 @@ export function getOSSClient(): OSS {
     accessKeyId,
     accessKeySecret,
     bucket,
-    // 使用默认的 CDN 域名（国内访问更快）
-    // 或者配置自定义域名
-    cname: process.env.OSS_CDN_URL || undefined,
+    // 只有配置了有效的 CDN 域名才启用 cname 模式
+    cname: process.env.OSS_CDN_URL ? process.env.OSS_CDN_URL : undefined,
   });
 
   return client;
