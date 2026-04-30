@@ -19,7 +19,7 @@ export function getOSSClient(): OSS {
   const region = process.env.OSS_REGION || 'oss-cn-beijing';
   const accessKeyId = process.env.OSS_ACCESS_KEY_ID;
   const accessKeySecret = process.env.OSS_ACCESS_KEY_SECRET;
-  const bucket = process.env.OSS_BUCKET_NAME;
+  const bucket = process.env.OSS_BUCKET;
 
   if (!accessKeyId || !accessKeySecret || !bucket) {
     throw new Error('缺少 OSS 配置: OSS_ACCESS_KEY_ID, OSS_ACCESS_KEY_SECRET, OSS_BUCKET_NAME');
@@ -49,7 +49,7 @@ export async function uploadImageToOSS(
   filename: string
 ): Promise<string> {
   const ossClient = getOSSClient();
-  const bucket = process.env.OSS_BUCKET_NAME!;
+  const bucket = process.env.OSS_BUCKET!;
 
   // 生成唯一的文件名
   const key = `history/${Date.now()}-${filename}`;
