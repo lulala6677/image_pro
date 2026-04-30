@@ -129,8 +129,8 @@ export default function ImageProcessorPage() {
         // 将后端数据转换为前端 HistoryEntry 格式
         const entries: HistoryEntry[] = result.data.map(record => ({
           id: record.id,
-          operation: record.operation_name,
-          params: record.parameters,
+          operation: record.operation_type || record.operation_name || '',
+          params: record.operation_params || record.parameters || {},
           dataUrl: record.processed_image_url || '',
           width: record.image_width || 0,
           height: record.image_height || 0,

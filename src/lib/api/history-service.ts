@@ -2,15 +2,18 @@
 
 export interface HistoryRecord {
   id: string;
-  original_name: string;
-  operation_name: string;
-  parameters: Record<string, unknown>;
+  original_image_url?: string;
+  original_name?: string;
+  operation_type?: string;
+  operation_name?: string;
+  operation_params?: Record<string, unknown>;
+  parameters?: Record<string, unknown>;
   processed_image_url: string;
   created_at: string;
-  image_width: number;
-  image_height: number;
-  has_selection: boolean;
-  selection_bounds: {
+  image_width?: number;
+  image_height?: number;
+  has_selection?: boolean;
+  selection_bounds?: {
     x: number;
     y: number;
     width: number;

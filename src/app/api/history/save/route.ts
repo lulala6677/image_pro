@@ -56,16 +56,16 @@ export async function POST(request: NextRequest) {
     // 生成记录 ID
     const id = crypto.randomUUID();
 
-    // 保存到数据库
+    // 保存到数据库（使用用户数据库的列名）
     const { data, error } = await supabase.from('experiment_history').insert({
       id,
-      original_name: original_name || null,
-      operation_name,
-      parameters: parameters || null,
+      original_image_url: original_name || null,
+      operation_type: operation_name,
+      operation_params: parameters || null,
       processed_image_url: finalImageUrl || null,
       image_width: image_width || null,
       image_height: image_height || null,
-      has_selection,
+      has_selection: has_selection || false,
       selection_bounds: selection_bounds || null,
     }).select().single();
 
