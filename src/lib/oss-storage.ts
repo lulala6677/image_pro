@@ -22,7 +22,7 @@ export function getOSSClient(): OSS {
   const bucket = process.env.OSS_BUCKET;
 
   if (!accessKeyId || !accessKeySecret || !bucket) {
-    throw new Error('缺少 OSS 配置: OSS_ACCESS_KEY_ID, OSS_ACCESS_KEY_SECRET, OSS_BUCKET_NAME');
+    throw new Error('缺少 OSS 配置: OSS_ACCESS_KEY_ID, OSS_ACCESS_KEY_SECRET, OSS_BUCKET');
   }
 
   client = new OSS({
