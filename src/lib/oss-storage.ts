@@ -30,8 +30,8 @@ export function getOSSClient(): OSS {
     accessKeyId,
     accessKeySecret,
     bucket,
-    // 只有配置了有效的 CDN 域名才启用 cname 模式
-    cname: process.env.OSS_CDN_URL ? process.env.OSS_CDN_URL : undefined,
+    // 使用完整的 endpoint URL
+    endpoint: 'oss-cn-hangzhou.aliyuncs.com',
   });
 
   return client;

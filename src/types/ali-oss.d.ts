@@ -1,9 +1,12 @@
 declare module 'ali-oss' {
   export interface OSSOptions {
-    region: string;
+    region?: string;
     accessKeyId: string;
     accessKeySecret: string;
     bucket: string;
+    endpoint?: string;
+    internal?: boolean;
+    secure?: boolean;
     cname?: string;
   }
 
