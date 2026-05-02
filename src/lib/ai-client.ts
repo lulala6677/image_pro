@@ -73,9 +73,11 @@ export async function generateImage(
       const endpoints = ['/images/edits', '/v1/images/edits', '/images/generations'];
       
       let lastError = '';
+      let successResponse: Response | null = null;
+      
       for (const endpoint of endpoints) {
         try {
-          response = await fetch(`${baseURL}${endpoint}`, {
+          const resp = await fetch(`${baseURL}${endpoint}`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${apiKey}`,
@@ -83,16 +85,21 @@ export async function generateImage(
             body: formData,
             signal: AbortSignal.timeout(180000), // 3分钟超时
           });
-          if (response.ok) break;
-          lastError = `Endpoint ${endpoint} failed: ${response.status}`;
+          if (resp.ok) {
+            successResponse = resp;
+            break;
+          }
+          lastError = `Endpoint ${endpoint} failed: ${resp.status}`;
         } catch (e) {
           lastError = `Endpoint ${endpoint} error: ${e}`;
         }
       }
 
-      if (!response?.ok) {
+      if (!successResponse) {
         throw new Error(lastError || '所有端点都失败');
       }
+      
+      response = successResponse;
     } else {
       // 标准 JSON 格式
       const body: Record<string, unknown> = {
