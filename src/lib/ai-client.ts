@@ -13,6 +13,19 @@ function checkConfig() {
   }
 }
 
+// 将 base64 转换为 Blob
+function base64ToBlob(base64: string, mimeType = 'image/png'): Blob {
+  // 移除 data URL 前缀
+  const base64Data = base64.replace(/^data:image\/\w+;base64,/, '');
+  const byteCharacters = atob(base64Data);
+  const byteNumbers = new Array(byteCharacters.length);
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i);
+  }
+  const byteArray = new Uint8Array(byteNumbers);
+  return new Blob([byteArray], { type: mimeType });
+}
+
 /**
  * AI 图像生成
  * 支持 OpenAI DALL-E、GPT Image 等兼容 API
@@ -42,10 +55,14 @@ export async function generateImage(
 
     if (isMultipartApi && options.image) {
       // 需要使用 multipart/form-data 格式上传图片
+      // 将 base64 转换为 Blob
+      const imageBlob = base64ToBlob(options.image);
+      const fileName = `image_${Date.now()}.png`;
+
       const formData = new FormData();
       formData.append('model', model);
       formData.append('prompt', prompt);
-      formData.append('image', options.image);
+      formData.append('image', imageBlob, fileName);
       formData.append('n', '1');
       formData.append('size', options.size || '1024x1024');
       if (options.quality) {
@@ -127,11 +144,16 @@ export async function editImage(
     let response: Response;
 
     if (isMultipartApi) {
-      // 使用 multipart/form-data 格式
+      // 使用 multipart/form-data 格式，将 base64 转换为 Blob
+      const imageBlob = base64ToBlob(image);
+      const maskBlob = base64ToBlob(mask);
+      const imageFileName = `image_${Date.now()}.png`;
+      const maskFileName = `mask_${Date.now()}.png`;
+
       const formData = new FormData();
       formData.append('model', model);
-      formData.append('image', image);
-      formData.append('mask', mask);
+      formData.append('image', imageBlob, imageFileName);
+      formData.append('mask', maskBlob, maskFileName);
       formData.append('prompt', prompt);
       formData.append('n', '1');
       formData.append('size', options.size || '1024x1024');
@@ -208,10 +230,13 @@ export async function createImageVariation(
     let response: Response;
 
     if (isMultipartApi) {
-      // 使用 multipart/form-data 格式
+      // 使用 multipart/form-data 格式，将 base64 转换为 Blob
+      const imageBlob = base64ToBlob(image);
+      const imageFileName = `image_${Date.now()}.png`;
+
       const formData = new FormData();
       formData.append('model', model);
-      formData.append('image', image);
+      formData.append('image', imageBlob, imageFileName);
       formData.append('n', '1');
       formData.append('size', options.size || '1024x1024');
 
