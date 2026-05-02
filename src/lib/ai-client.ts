@@ -33,29 +33,54 @@ export async function generateImage(
   const model = process.env.OPENAI_MODEL || 'dall-e-3';
 
   try {
-    const params: Record<string, string | number> = {
-      model,
-      prompt,
-      n: 1,
-      size: options.size || '1024x1024',
+    // 根据 API 类型选择请求格式
+    const isViduApi = baseURL.includes('vidu') || baseURL.includes('maolaoapi');
+    
+    let body: Record<string, unknown>;
+    let headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
     };
 
-    if (options.quality) {
-      params.quality = options.quality;
+    if (isViduApi) {
+      // maolaoapi 等兼容 API 使用 OpenAI 格式
+      body = {
+        model,
+        prompt,
+        image_url: options.image || undefined,
+        size: options.size || '1024x1024',
+        quality: options.quality || 'standard',
+        n: 1,
+      };
+    } else {
+      // 标准 OpenAI DALL-E API
+      body = {
+        model,
+        prompt,
+        size: options.size || '1024x1024',
+        quality: options.quality || 'standard',
+        n: 1,
+      };
+      
+      // DALL-E 3 图像编辑支持
+      if (options.image) {
+        (body as Record<string, unknown>).image = options.image;
+      }
     }
 
-    if (options.style) {
-      params.style = options.style;
+    // 过滤掉 undefined 值
+    const cleanBody: Record<string, string | number> = {};
+    for (const [key, value] of Object.entries(body)) {
+      if (value !== undefined) {
+        cleanBody[key] = value as string | number;
+      }
     }
 
     // 调用 OpenAI 兼容 API
     const response = await fetch(`${baseURL}/images/generations`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify(params),
+      headers,
+      body: JSON.stringify(cleanBody),
     });
 
     if (!response.ok) {
