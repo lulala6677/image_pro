@@ -57,12 +57,12 @@ export async function POST(request: NextRequest) {
         // 智能扩图 - 使用 Qwen-Image-Edit 模型
         message = '智能扩图完成';
         const expandPrompt = prompt ||
-          `Extend and expand this image outward to create a wider view. ` +
-          `IMPORTANT: Keep the original content in the center completely unchanged. ` +
-          `Only generate new natural content at the edges to seamlessly expand the scene. ` +
-          `Match the lighting, colors, atmosphere, textures, and perspective of the original image. ` +
-          `The new expanded areas should look like a natural continuation of the original scene. ` +
-          `The overall composition should look like one coherent image with a wider field of view.`;
+          `You are extending this image outward. ` +
+          `The center part of the image must remain EXACTLY the same - do not modify, regenerate, or change anything in the original content. ` +
+          `Your task is ONLY to generate new content at the edges that seamlessly continues the scene. ` +
+          `The new edges must match perfectly with the existing content: same lighting direction and intensity, same color palette, same atmosphere and mood, same art style and textures. ` +
+          `The transition at the original edge must be completely invisible - like the image was always captured at this wider view. ` +
+          `Pay special attention to the connection points where old meets new - blend them naturally without any visible seams, artifacts, or style mismatches.`;
 
         result = await generateImage(expandPrompt, {
           image: imageUrl,
@@ -83,15 +83,18 @@ export async function POST(request: NextRequest) {
 
         message = '风格迁移完成';
         const stylePrompt = prompt ||
-          `Apply the visual style of the second image to the first image. ` +
-          `IMPORTANT: The subject and content of the first image must remain completely unchanged. ` +
-          `Only apply the visual style, colors, textures, and artistic effects from the reference. ` +
-          `The output should look like the original content rendered in the new art style. ` +
-          `Do not change what is depicted, only how it is depicted.`;
+          `You have two images. The FIRST image is the CONTENT image (what to draw). The SECOND image is the STYLE reference (how to draw it). ` +
+          `Your task: Draw the CONTENT from the first image using the STYLE from the second image. ` +
+          `CRITICAL RULES: ` +
+          `1. Keep ALL subjects, objects, people, and content from the first image IDENTICAL - positions, shapes, sizes, expressions must be the same. ` +
+          `2. EXTRACT ONLY the artistic style from the second image: color palette, textures, brush strokes, line quality, lighting style, visual effects. ` +
+          `3. Apply the style to the content seamlessly - the result should look like the first image was always painted in the style of the second image. ` +
+          `4. Do NOT mix up the images - the first image provides the subject/content, the second provides only the visual style. ` +
+          `5. The output must clearly show the same content as the first image, just rendered in a different artistic style.`;
 
         result = await generateImage(stylePrompt, {
-          image: imageUrl,
-          image2: styleImageUrl,
+          image: imageUrl,      // 原图 - 内容来源
+          image2: styleImageUrl, // 风格图 - 风格参考
           model: 'Qwen/Qwen-Image-Edit-2509',
           size: '1024x1024',
         });
