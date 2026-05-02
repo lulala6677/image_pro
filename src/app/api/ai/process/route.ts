@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { generateImage, editImage } from '@/lib/ai-client';
+import { generateImage } from '@/lib/ai-client';
 import { uploadImageToOSS } from '@/lib/oss-storage';
 
 /**
@@ -37,7 +37,6 @@ export async function POST(request: NextRequest) {
 
     switch (action) {
       case 'denoise': {
-        // 图像去噪 - 使用 Qwen-Image-Edit 模型
         message = '去噪处理完成';
         const denoisePrompt = prompt ||
           `Professional image denoising and restoration. Remove all noise, grain, and artifacts. ` +
@@ -54,15 +53,13 @@ export async function POST(request: NextRequest) {
       }
 
       case 'expand': {
-        // 智能扩图 - 使用 Qwen-Image-Edit 模型
         message = '智能扩图完成';
         const expandPrompt = prompt ||
-          `You are extending this image outward. ` +
-          `The center part of the image must remain EXACTLY the same - do not modify, regenerate, or change anything in the original content. ` +
-          `Your task is ONLY to generate new content at the edges that seamlessly continues the scene. ` +
-          `The new edges must match perfectly with the existing content: same lighting direction and intensity, same color palette, same atmosphere and mood, same art style and textures. ` +
-          `The transition at the original edge must be completely invisible - like the image was always captured at this wider view. ` +
-          `Pay special attention to the connection points where old meets new - blend them naturally without any visible seams, artifacts, or style mismatches.`;
+          `EXTEND this image naturally at the edges. ` +
+          `The original content in the center must remain UNCHANGED. ` +
+          `Only generate new content at the borders. ` +
+          `New edges must perfectly match: lighting, colors, textures, style, atmosphere. ` +
+          `The transition must be invisible - no seams, no artifacts, no style changes.`;
 
         result = await generateImage(expandPrompt, {
           image: imageUrl,
@@ -73,7 +70,6 @@ export async function POST(request: NextRequest) {
       }
 
       case 'style_transfer': {
-        // 风格迁移 - 使用 Qwen-Image-Edit-2509 模型支持双图输入
         if (!styleImageUrl) {
           return NextResponse.json({
             success: false,
@@ -82,17 +78,14 @@ export async function POST(request: NextRequest) {
         }
 
         message = '风格迁移完成';
-        const stylePrompt = prompt ||
-          `You have two images. The FIRST image is the CONTENT image (what to draw). The SECOND image is the STYLE reference (how to draw it). ` +
-          `Your task: Draw the CONTENT from the first image using the STYLE from the second image. ` +
-          `CRITICAL RULES: ` +
-          `1. Keep ALL subjects, objects, people, and content from the first image IDENTICAL - positions, shapes, sizes, expressions must be the same. ` +
-          `2. EXTRACT ONLY the artistic style from the second image: color palette, textures, brush strokes, line quality, lighting style, visual effects. ` +
-          `3. Apply the style to the content seamlessly - the result should look like the first image was always painted in the style of the second image. ` +
-          `4. Do NOT mix up the images - the first image provides the subject/content, the second provides only the visual style. ` +
-          `5. The output must clearly show the same content as the first image, just rendered in a different artistic style.`;
+        // image 参数是原图（内容），image2 是风格图
+        const combinedPrompt = prompt ||
+          `Apply the artistic style from image2 to the content of image1. ` +
+          `CONTENT (image1): Keep EXACTLY - all subjects, positions, shapes, people, objects, background. ` +
+          `STYLE (image2): Extract ONLY - colors, textures, brush strokes, lighting, mood. ` +
+          `RESULT: Image1 content drawn in the style of image2.`;
 
-        result = await generateImage(stylePrompt, {
+        result = await generateImage(combinedPrompt, {
           image: imageUrl,      // 原图 - 内容来源
           image2: styleImageUrl, // 风格图 - 风格参考
           model: 'Qwen/Qwen-Image-Edit-2509',
@@ -102,7 +95,6 @@ export async function POST(request: NextRequest) {
       }
 
       case 'inpaint': {
-        // 内容感知填充 (Inpainting)
         message = '内容填充完成';
         const inpaintPrompt = prompt ||
           `Edit and improve this image. Regenerate any unwanted or low-quality areas with natural content. ` +
@@ -120,7 +112,6 @@ export async function POST(request: NextRequest) {
       }
 
       case 'enhance': {
-        // 图像增强 - 提升整体质量
         message = '图像增强完成';
         const enhancePrompt = prompt ||
           `Enhance and improve this image with professional photo editing. ` +
@@ -156,19 +147,37 @@ export async function POST(request: NextRequest) {
 
     if (result.url.startsWith('https://') && !result.url.includes('data:image')) {
       try {
-        // 下载 AI 返回的图片
         const response = await fetch(result.url);
         if (response.ok) {
           const arrayBuffer = await response.arrayBuffer();
           const buffer = Buffer.from(arrayBuffer);
-
-          // 上传到自己的 OSS 存储
-          finalImageUrl = await uploadImageToOSS(buffer, 'ai-result.png');
+          finalImageUrl = await uploadImageToOSS(buffer, `ai-${action}-${Date.now()}.png`);
         }
       } catch (uploadError) {
-        console.warn('上传 AI 结果到 OSS 失败，使用原始 URL:', uploadError);
-        // 失败时使用原始 URL
+        console.warn('上传到 OSS 失败，使用原始 URL:', uploadError);
       }
+    }
+
+    // 保存历史记录
+    try {
+      const { saveHistoryRecord } = await import('@/lib/api/history-service');
+      const saveResult = await saveHistoryRecord({
+        original_name: imageUrl || 'AI生成图片',
+        operation_name: `AI_${action}`,
+        processed_image_url: finalImageUrl,
+        parameters: {
+          model: 'Qwen-Image-Edit',
+          action: action,
+          hasStyleImage: !!styleImageUrl,
+        },
+        image_width: 1024,
+        image_height: 1024,
+        has_selection: false,
+        selection_bounds: null,
+      });
+      console.log('[AI Process] History saved:', saveResult.success ? 'OK' : saveResult.error);
+    } catch (historyError) {
+      console.error('[AI Process] History save failed:', historyError);
     }
 
     return NextResponse.json({
@@ -183,7 +192,6 @@ export async function POST(request: NextRequest) {
 
     const errorMessage = error instanceof Error ? error.message : '未知错误';
 
-    // 区分错误类型
     if (errorMessage.includes('API key') || errorMessage.includes('auth')) {
       return NextResponse.json({
         success: false,
