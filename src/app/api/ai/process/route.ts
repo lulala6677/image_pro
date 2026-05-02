@@ -4,7 +4,7 @@ import { uploadImageToOSS } from '@/lib/oss-storage';
 
 /**
  * AI 图像处理 API
- * 支持 OpenAI DALL-E、阿里云通义万相等兼容 API
+ * 支持 SiliconFlow（Kolors 文生图 / Qwen-Image-Edit 图生图）
  * 
  * 请求参数:
  * - action: 'denoise' | 'expand' | 'style_transfer' | 'inpaint' | 'enhance'
@@ -32,15 +32,12 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // 强度参数（控制对原图的保留程度，0-1之间）
-    const controlStrength = strength !== undefined ? Number(strength) : 0.7;
-
     let result;
     let message;
 
     switch (action) {
       case 'denoise': {
-        // 图像去噪 - 使用 AI 增强清晰度
+        // 图像去噪 - 使用 Qwen-Image-Edit 模型
         message = '去噪处理完成';
         const denoisePrompt = prompt ||
           `Professional image denoising and restoration. Remove all noise, grain, and artifacts. ` +
@@ -50,14 +47,14 @@ export async function POST(request: NextRequest) {
 
         result = await generateImage(denoisePrompt, {
           image: imageUrl,
+          model: 'Qwen/Qwen-Image-Edit',
           size: '1024x1024',
-          quality: 'hd',
         });
         break;
       }
 
       case 'expand': {
-        // 智能扩图 - 扩展图像边界
+        // 智能扩图 - 使用 Qwen-Image-Edit 模型
         message = '智能扩图完成';
         const expandPrompt = prompt ||
           `Extend and expand this image outward to create a wider view. ` +
@@ -69,14 +66,14 @@ export async function POST(request: NextRequest) {
 
         result = await generateImage(expandPrompt, {
           image: imageUrl,
-          size: '1792x1024',
-          quality: 'hd',
+          model: 'Qwen/Qwen-Image-Edit',
+          size: '1328x1328',
         });
         break;
       }
 
       case 'style_transfer': {
-        // 风格迁移
+        // 风格迁移 - 使用 Qwen-Image-Edit-2509 模型支持双图输入
         if (!styleImageUrl) {
           return NextResponse.json({
             success: false,
@@ -85,26 +82,24 @@ export async function POST(request: NextRequest) {
         }
 
         message = '风格迁移完成';
-        // 注意：OpenAI DALL-E 3 不直接支持多图输入，这里使用合并 prompt 的方式
-        // 如果需要真正的风格迁移，可以考虑其他支持多图输入的 API（如 Midjourney、Stable Diffusion）
         const stylePrompt = prompt ||
-          `Transform this image in the style of the reference image. ` +
-          `IMPORTANT: The subject and content must remain completely unchanged. ` +
+          `Apply the visual style of the second image to the first image. ` +
+          `IMPORTANT: The subject and content of the first image must remain completely unchanged. ` +
           `Only apply the visual style, colors, textures, and artistic effects from the reference. ` +
           `The output should look like the original content rendered in the new art style. ` +
           `Do not change what is depicted, only how it is depicted.`;
 
         result = await generateImage(stylePrompt, {
           image: imageUrl,
+          image2: styleImageUrl,
+          model: 'Qwen/Qwen-Image-Edit-2509',
           size: '1024x1024',
-          quality: 'hd',
         });
         break;
       }
 
       case 'inpaint': {
         // 内容感知填充 (Inpainting)
-        // 注意：DALL-E 3 不支持 inpainting，这里使用图像编辑模式
         message = '内容填充完成';
         const inpaintPrompt = prompt ||
           `Edit and improve this image. Regenerate any unwanted or low-quality areas with natural content. ` +
@@ -115,8 +110,8 @@ export async function POST(request: NextRequest) {
 
         result = await generateImage(inpaintPrompt, {
           image: imageUrl,
+          model: 'Qwen/Qwen-Image-Edit',
           size: '1024x1024',
-          quality: 'hd',
         });
         break;
       }
@@ -133,8 +128,8 @@ export async function POST(request: NextRequest) {
 
         result = await generateImage(enhancePrompt, {
           image: imageUrl,
+          model: 'Qwen/Qwen-Image-Edit',
           size: '1024x1024',
-          quality: 'hd',
         });
         break;
       }
@@ -200,9 +195,16 @@ export async function POST(request: NextRequest) {
       }, { status: 429 });
     }
 
+    if (errorMessage.includes('timeout') || errorMessage.includes('ETIMEDOUT')) {
+      return NextResponse.json({
+        success: false,
+        error: 'AI 服务处理超时，请尝试更简单的操作或稍后重试',
+      }, { status: 504 });
+    }
+
     return NextResponse.json({
       success: false,
-      error: `AI 处理失败: ${errorMessage}`,
+      error: `AI处理失败: ${errorMessage}`,
     }, { status: 500 });
   }
 }

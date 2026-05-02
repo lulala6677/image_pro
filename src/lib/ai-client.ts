@@ -1,5 +1,5 @@
 // AI 图像生成客户端
-// 支持 OpenAI DALL-E、GPT Image 等兼容 API
+// 支持 SiliconFlow API（兼容 OpenAI 格式）
 
 export interface AIImageGenerationResult {
   url: string;
@@ -13,306 +13,110 @@ function checkConfig() {
   }
 }
 
-// 将 base64 转换为 Blob
-function base64ToBlob(base64: string, mimeType = 'image/png'): Blob {
-  // 移除 data URL 前缀
-  const base64Data = base64.replace(/^data:image\/\w+;base64,/, '');
-  const byteCharacters = atob(base64Data);
-  const byteNumbers = new Array(byteCharacters.length);
-  for (let i = 0; i < byteCharacters.length; i++) {
-    byteNumbers[i] = byteCharacters.charCodeAt(i);
-  }
-  const byteArray = new Uint8Array(byteNumbers);
-  return new Blob([byteArray], { type: mimeType });
-}
-
 /**
- * AI 图像生成
- * 支持 OpenAI DALL-E、GPT Image 等兼容 API
+ * SiliconFlow 图像生成
+ * 支持 Kolors (文生图) 和 Qwen-Image-Edit (图生图/风格迁移)
  */
 export async function generateImage(
   prompt: string,
   options: {
-    size?: '1024x1024' | '1792x1024' | '1024x1792' | '512x512' | '256x256';
-    quality?: 'standard' | 'hd';
-    style?: 'vivid' | 'natural';
-    image?: string; // 参考图片（base64）
+    size?: string; // SiliconFlow 格式，如 "1024x1024"
+    image?: string; // 参考图片（base64 或 URL）
+    image2?: string; // 第二张参考图片（用于 Qwen-Image-Edit-2509）
+    model?: string; // 默认使用 Kolors
   } = {}
 ): Promise<AIImageGenerationResult> {
   checkConfig();
 
   const apiKey = process.env.OPENAI_API_KEY!;
-  const baseURL = process.env.OPENAI_API_BASE || 'https://api.openai.com/v1';
-  const model = process.env.OPENAI_MODEL || 'dall-e-3';
+  const baseURL = process.env.OPENAI_API_BASE || 'https://api.siliconflow.cn';
+  const model = options.model || process.env.OPENAI_MODEL || 'Kwai-Kolors/Kolors';
 
   try {
-    // 检测是否为需要 multipart 格式的 API
-    const isMultipartApi = baseURL.includes('maolaoapi') || 
-                           baseURL.includes('vidu') ||
-                           baseURL.includes('openai-image');
+    // SiliconFlow 使用 JSON 格式
+    const requestBody: Record<string, unknown> = {
+      model: model,
+      prompt: prompt,
+      image_size: options.size || '1024x1024',
+      batch_size: 1,
+      num_inference_steps: 20,
+      guidance_scale: 7.5,
+    };
 
-    let response: Response;
-
-    if (isMultipartApi && options.image) {
-      // 需要使用 multipart/form-data 格式上传图片
-      // 将 base64 转换为 Blob
-      const imageBlob = base64ToBlob(options.image);
-      const fileName = `image_${Date.now()}.png`;
-
-      const formData = new FormData();
-      formData.append('model', model);
-      formData.append('prompt', prompt);
-      formData.append('image', imageBlob, fileName);
-      formData.append('n', '1');
-      formData.append('size', options.size || '1024x1024');
-      if (options.quality) {
-        formData.append('quality', options.quality);
-      }
-
-      // 尝试多个可能的端点
-      const endpoints = ['/images/edits', '/v1/images/edits', '/images/generations'];
-      
-      let lastError = '';
-      let successResponse: Response | null = null;
-      
-      for (const endpoint of endpoints) {
-        try {
-          const resp = await fetch(`${baseURL}${endpoint}`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${apiKey}`,
-            },
-            body: formData,
-            signal: AbortSignal.timeout(180000), // 3分钟超时
-          });
-          if (resp.ok) {
-            successResponse = resp;
-            break;
-          }
-          lastError = `Endpoint ${endpoint} failed: ${resp.status}`;
-        } catch (e) {
-          lastError = `Endpoint ${endpoint} error: ${e}`;
-        }
-      }
-
-      if (!successResponse) {
-        throw new Error(lastError || '所有端点都失败');
-      }
-      
-      response = successResponse;
-    } else {
-      // 标准 JSON 格式
-      const body: Record<string, unknown> = {
-        model,
-        prompt,
-        size: options.size || '1024x1024',
-        quality: options.quality || 'standard',
-        n: 1,
-      };
-
-      response = await fetch(`${baseURL}/images/generations`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify(body),
-      });
+    // 如果有参考图片，添加到请求中
+    if (options.image) {
+      // SiliconFlow 支持 base64 或 URL
+      requestBody.image = options.image;
     }
+
+    // 如果有第二张图片（用于 Qwen-Image-Edit-2509）
+    if (options.image2) {
+      requestBody.image2 = options.image2;
+    }
+
+    console.log('[AI Client] 发送请求到 SiliconFlow:', { model, baseURL, hasImage: !!options.image });
+
+    const response = await fetch(`${baseURL}/v1/images/generations`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+      signal: AbortSignal.timeout(180000), // 3分钟超时
+    });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('API Error Response:', errorText);
-      let errorMessage = `API 请求失败: ${response.status}`;
-      try {
-        const errorData = JSON.parse(errorText);
-        errorMessage = errorData.error?.message || errorData.error || errorMessage;
-      } catch {
-        errorMessage = errorText || errorMessage;
-      }
-      throw new Error(errorMessage);
+      console.error('[AI Client] API 错误:', response.status, errorText);
+      throw new Error(`API 请求失败: ${response.status} - ${errorText}`);
     }
 
-    const data = await response.json() as { data: Array<{ url?: string; revised_prompt?: string }> };
+    const data = await response.json();
+    console.log('[AI Client] API 响应:', JSON.stringify(data).substring(0, 500));
 
-    if (!data.data || data.data.length === 0) {
-      throw new Error('AI 图像生成失败：未返回结果');
+    // SiliconFlow 返回格式: { images: [{ url: "..." }], timings: {...}, seed: ... }
+    if (data.images && data.images.length > 0) {
+      return {
+        url: data.images[0].url,
+        revisedPrompt: prompt, // SiliconFlow 不返回 revised_prompt
+      };
     }
 
-    return {
-      url: data.data[0].url || '',
-      revisedPrompt: data.data[0].revised_prompt,
-    };
+    throw new Error('API 响应格式错误：没有找到生成的图片');
   } catch (error) {
-    console.error('AI 图像生成错误:', error);
+    console.error('[AI Client] 生成失败:', error);
     throw error;
   }
 }
 
 /**
- * AI 图像编辑（修改图片局部）
+ * 风格迁移 - 使用 Qwen-Image-Edit-2509 模型
+ */
+export async function styleTransfer(
+  sourceImage: string, // 原图 base64
+  styleImage: string, // 风格参考图 base64
+  prompt: string
+): Promise<AIImageGenerationResult> {
+  return generateImage(prompt, {
+    image: sourceImage,
+    image2: styleImage,
+    model: 'Qwen/Qwen-Image-Edit-2509',
+    size: '1024x1024',
+  });
+}
+
+/**
+ * 图像编辑 - 使用 Qwen-Image-Edit 模型
  */
 export async function editImage(
   image: string, // 原图 base64
-  mask: string, // 蒙版 base64
   prompt: string,
-  options: {
-    model?: string;
-    size?: '1024x1024' | '512x512';
-  } = {}
+  size?: string
 ): Promise<AIImageGenerationResult> {
-  checkConfig();
-
-  const apiKey = process.env.OPENAI_API_KEY!;
-  const baseURL = process.env.OPENAI_API_BASE || 'https://api.openai.com/v1';
-  const model = options.model || process.env.OPENAI_MODEL || 'dall-e-2';
-
-  try {
-    // 检测是否为需要 multipart 格式的 API
-    const isMultipartApi = baseURL.includes('maolaoapi') || 
-                           baseURL.includes('vidu') ||
-                           baseURL.includes('openai-image');
-
-    let response: Response;
-
-    if (isMultipartApi) {
-      // 使用 multipart/form-data 格式，将 base64 转换为 Blob
-      const imageBlob = base64ToBlob(image);
-      const maskBlob = base64ToBlob(mask);
-      const imageFileName = `image_${Date.now()}.png`;
-      const maskFileName = `mask_${Date.now()}.png`;
-
-      const formData = new FormData();
-      formData.append('model', model);
-      formData.append('image', imageBlob, imageFileName);
-      formData.append('mask', maskBlob, maskFileName);
-      formData.append('prompt', prompt);
-      formData.append('n', '1');
-      formData.append('size', options.size || '1024x1024');
-
-      response = await fetch(`${baseURL}/images/edits`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-        },
-        body: formData,
-      });
-    } else {
-      // 标准 OpenAI 格式
-      response = await fetch(`${baseURL}/images/edits`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model,
-          image,
-          mask,
-          prompt,
-          n: 1,
-          size: options.size || '1024x1024',
-        }),
-      });
-    }
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error?.message || `API 请求失败: ${response.status}`);
-    }
-
-    const data = await response.json() as { data: Array<{ url?: string; revised_prompt?: string }> };
-
-    if (!data.data || data.data.length === 0) {
-      throw new Error('AI 图像编辑失败：未返回结果');
-    }
-
-    return {
-      url: data.data[0].url || '',
-      revisedPrompt: data.data[0].revised_prompt,
-    };
-  } catch (error) {
-    console.error('AI 图像编辑错误:', error);
-    throw error;
-  }
-}
-
-/**
- * AI 图像变体（生成图片变体）
- */
-export async function createImageVariation(
-  image: string, // 原图 base64
-  options: {
-    model?: string;
-    size?: '1024x1024' | '512x512';
-  } = {}
-): Promise<AIImageGenerationResult> {
-  checkConfig();
-
-  const apiKey = process.env.OPENAI_API_KEY!;
-  const baseURL = process.env.OPENAI_API_BASE || 'https://api.openai.com/v1';
-  const model = options.model || process.env.OPENAI_MODEL || 'dall-e-2';
-
-  try {
-    // 检测是否为需要 multipart 格式的 API
-    const isMultipartApi = baseURL.includes('maolaoapi') || 
-                           baseURL.includes('vidu') ||
-                           baseURL.includes('openai-image');
-
-    let response: Response;
-
-    if (isMultipartApi) {
-      // 使用 multipart/form-data 格式，将 base64 转换为 Blob
-      const imageBlob = base64ToBlob(image);
-      const imageFileName = `image_${Date.now()}.png`;
-
-      const formData = new FormData();
-      formData.append('model', model);
-      formData.append('image', imageBlob, imageFileName);
-      formData.append('n', '1');
-      formData.append('size', options.size || '1024x1024');
-
-      response = await fetch(`${baseURL}/images/variations`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-        },
-        body: formData,
-      });
-    } else {
-      // 标准 OpenAI 格式
-      response = await fetch(`${baseURL}/images/variations`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model,
-          image,
-          n: 1,
-          size: options.size || '1024x1024',
-        }),
-      });
-    }
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error?.message || `API 请求失败: ${response.status}`);
-    }
-
-    const data = await response.json() as { data: Array<{ url?: string; revised_prompt?: string }> };
-
-    if (!data.data || data.data.length === 0) {
-      throw new Error('AI 图像变体生成失败：未返回结果');
-    }
-
-    return {
-      url: data.data[0].url || '',
-      revisedPrompt: data.data[0].revised_prompt,
-    };
-  } catch (error) {
-    console.error('AI 图像变体错误:', error);
-    throw error;
-  }
+  return generateImage(prompt, {
+    image: image,
+    model: 'Qwen/Qwen-Image-Edit',
+    size: size || '1024x1024',
+  });
 }
