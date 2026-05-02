@@ -1,5 +1,5 @@
 // AI 图像生成客户端
-// 支持 OpenAI DALL-E、阿里云通义万相等兼容 API
+// 支持 OpenAI DALL-E、GPT Image 等兼容 API
 
 export interface AIImageGenerationResult {
   url: string;
@@ -15,7 +15,7 @@ function checkConfig() {
 
 /**
  * AI 图像生成
- * 支持 OpenAI DALL-E、阿里云通义万相等兼容 API
+ * 支持 OpenAI DALL-E、GPT Image 等兼容 API
  */
 export async function generateImage(
   prompt: string,
@@ -23,7 +23,7 @@ export async function generateImage(
     size?: '1024x1024' | '1792x1024' | '1024x1792' | '512x512' | '256x256';
     quality?: 'standard' | 'hd';
     style?: 'vivid' | 'natural';
-    image?: string; // 参考图片（base64 或 URL）
+    image?: string; // 参考图片（base64）
   } = {}
 ): Promise<AIImageGenerationResult> {
   checkConfig();
@@ -33,55 +33,51 @@ export async function generateImage(
   const model = process.env.OPENAI_MODEL || 'dall-e-3';
 
   try {
-    // 根据 API 类型选择请求格式
-    const isViduApi = baseURL.includes('vidu') || baseURL.includes('maolaoapi');
-    
-    let body: Record<string, unknown>;
-    let headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    };
+    // 检测是否为需要 multipart 格式的 API
+    const isMultipartApi = baseURL.includes('maolaoapi') || 
+                           baseURL.includes('vidu') ||
+                           baseURL.includes('openai-image');
 
-    if (isViduApi) {
-      // maolaoapi 等兼容 API 使用 OpenAI 格式
-      body = {
-        model,
-        prompt,
-        image_url: options.image || undefined,
-        size: options.size || '1024x1024',
-        quality: options.quality || 'standard',
-        n: 1,
-      };
+    let response: Response;
+
+    if (isMultipartApi && options.image) {
+      // 需要使用 multipart/form-data 格式上传图片
+      const formData = new FormData();
+      formData.append('model', model);
+      formData.append('prompt', prompt);
+      formData.append('image', options.image);
+      formData.append('n', '1');
+      formData.append('size', options.size || '1024x1024');
+      if (options.quality) {
+        formData.append('quality', options.quality);
+      }
+
+      response = await fetch(`${baseURL}/images/edits`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: formData,
+      });
     } else {
-      // 标准 OpenAI DALL-E API
-      body = {
+      // 标准 JSON 格式
+      const body: Record<string, unknown> = {
         model,
         prompt,
         size: options.size || '1024x1024',
         quality: options.quality || 'standard',
         n: 1,
       };
-      
-      // DALL-E 3 图像编辑支持
-      if (options.image) {
-        (body as Record<string, unknown>).image = options.image;
-      }
-    }
 
-    // 过滤掉 undefined 值
-    const cleanBody: Record<string, string | number> = {};
-    for (const [key, value] of Object.entries(body)) {
-      if (value !== undefined) {
-        cleanBody[key] = value as string | number;
-      }
+      response = await fetch(`${baseURL}/images/generations`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(body),
+      });
     }
-
-    // 调用 OpenAI 兼容 API
-    const response = await fetch(`${baseURL}/images/generations`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(cleanBody),
-    });
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -123,22 +119,48 @@ export async function editImage(
   const model = options.model || process.env.OPENAI_MODEL || 'dall-e-2';
 
   try {
-    const response = await fetch(`${baseURL}/images/edits`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: (() => {
-        const formData = new FormData();
-        formData.append('model', model);
-        formData.append('image', image.split(',')[1] || image);
-        formData.append('mask', mask.split(',')[1] || mask);
-        formData.append('prompt', prompt);
-        formData.append('n', '1');
-        formData.append('size', options.size || '1024x1024');
-        return formData;
-      })(),
-    });
+    // 检测是否为需要 multipart 格式的 API
+    const isMultipartApi = baseURL.includes('maolaoapi') || 
+                           baseURL.includes('vidu') ||
+                           baseURL.includes('openai-image');
+
+    let response: Response;
+
+    if (isMultipartApi) {
+      // 使用 multipart/form-data 格式
+      const formData = new FormData();
+      formData.append('model', model);
+      formData.append('image', image);
+      formData.append('mask', mask);
+      formData.append('prompt', prompt);
+      formData.append('n', '1');
+      formData.append('size', options.size || '1024x1024');
+
+      response = await fetch(`${baseURL}/images/edits`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: formData,
+      });
+    } else {
+      // 标准 OpenAI 格式
+      response = await fetch(`${baseURL}/images/edits`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model,
+          image,
+          mask,
+          prompt,
+          n: 1,
+          size: options.size || '1024x1024',
+        }),
+      });
+    }
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -178,34 +200,59 @@ export async function createImageVariation(
   const model = options.model || process.env.OPENAI_MODEL || 'dall-e-2';
 
   try {
-    const response = await fetch(`${baseURL}/images/variations`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: (() => {
-        const formData = new FormData();
-        formData.append('model', model);
-        formData.append('image', image.split(',')[1] || image);
-        formData.append('n', '1');
-        formData.append('size', options.size || '1024x1024');
-        return formData;
-      })(),
-    });
+    // 检测是否为需要 multipart 格式的 API
+    const isMultipartApi = baseURL.includes('maolaoapi') || 
+                           baseURL.includes('vidu') ||
+                           baseURL.includes('openai-image');
+
+    let response: Response;
+
+    if (isMultipartApi) {
+      // 使用 multipart/form-data 格式
+      const formData = new FormData();
+      formData.append('model', model);
+      formData.append('image', image);
+      formData.append('n', '1');
+      formData.append('size', options.size || '1024x1024');
+
+      response = await fetch(`${baseURL}/images/variations`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: formData,
+      });
+    } else {
+      // 标准 OpenAI 格式
+      response = await fetch(`${baseURL}/images/variations`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model,
+          image,
+          n: 1,
+          size: options.size || '1024x1024',
+        }),
+      });
+    }
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.error?.message || `API 请求失败: ${response.status}`);
     }
 
-    const data = await response.json() as { data: Array<{ url?: string }> };
+    const data = await response.json() as { data: Array<{ url?: string; revised_prompt?: string }> };
 
     if (!data.data || data.data.length === 0) {
-      throw new Error('AI 图像变体失败：未返回结果');
+      throw new Error('AI 图像变体生成失败：未返回结果');
     }
 
     return {
       url: data.data[0].url || '',
+      revisedPrompt: data.data[0].revised_prompt,
     };
   } catch (error) {
     console.error('AI 图像变体错误:', error);
