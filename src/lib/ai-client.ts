@@ -69,13 +69,30 @@ export async function generateImage(
         formData.append('quality', options.quality);
       }
 
-      response = await fetch(`${baseURL}/images/edits`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-        },
-        body: formData,
-      });
+      // 尝试多个可能的端点
+      const endpoints = ['/images/edits', '/v1/images/edits', '/images/generations'];
+      
+      let lastError = '';
+      for (const endpoint of endpoints) {
+        try {
+          response = await fetch(`${baseURL}${endpoint}`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${apiKey}`,
+            },
+            body: formData,
+            signal: AbortSignal.timeout(180000), // 3分钟超时
+          });
+          if (response.ok) break;
+          lastError = `Endpoint ${endpoint} failed: ${response.status}`;
+        } catch (e) {
+          lastError = `Endpoint ${endpoint} error: ${e}`;
+        }
+      }
+
+      if (!response?.ok) {
+        throw new Error(lastError || '所有端点都失败');
+      }
     } else {
       // 标准 JSON 格式
       const body: Record<string, unknown> = {
