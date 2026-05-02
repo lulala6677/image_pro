@@ -97,8 +97,16 @@ export async function generateImage(
     }
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error?.message || `API 请求失败: ${response.status}`);
+      const errorText = await response.text();
+      console.error('API Error Response:', errorText);
+      let errorMessage = `API 请求失败: ${response.status}`;
+      try {
+        const errorData = JSON.parse(errorText);
+        errorMessage = errorData.error?.message || errorData.error || errorMessage;
+      } catch {
+        errorMessage = errorText || errorMessage;
+      }
+      throw new Error(errorMessage);
     }
 
     const data = await response.json() as { data: Array<{ url?: string; revised_prompt?: string }> };
